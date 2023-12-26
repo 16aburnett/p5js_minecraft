@@ -15,4 +15,4 @@ cd p5js_minecraft/code/
 python3 -m http.server
 ```
 
-You should be able to play the game, by going to http://localhost:8000/.
+You should be able to play the game by going to http://localhost:8000/.

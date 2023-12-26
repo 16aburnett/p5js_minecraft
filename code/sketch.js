@@ -3,26 +3,12 @@
 //========================================================================
 // Globals
 
-const BLOCK_WIDTH = 25;
-
-// Block IDs that represent the different kinds of blocks
-const BLOCK_ID_AIR        = 0;
-const BLOCK_ID_GRASS      = 1;
-const BLOCK_ID_DIRT       = 2;
-const BLOCK_ID_STONE      = 3;
-const BLOCK_ID_WATER      = 4;
-const BLOCK_ID_SAND       = 5;
-
 // this should be 256
 const WORLD_HEIGHT = 50;
 // this should be 65
 const SEA_LEVEL = 20
 // a chunk is a CHUNK_SIZE*CHUNK_SIZE*WORLD_HEIGHT subset of the full map
-const CHUNK_SIZE = 4;
-
-// 3D array that stores block ids for representing the world
-// x, y, z
-let blocks = [];
+const CHUNK_SIZE = 16;
 
 let camera;
 const FOV_DEGREES = 90;
@@ -30,16 +16,10 @@ const FOV_DEGREES = 90;
 let overlay_graphics;
 let overlay_font;
 
-const DRAW_STYLE_NORMAL = 0;
-const DRAW_STYLE_WIREFRAME = 1;
-const DRAW_STYLE_NORMAL_WIREFRAME = 2;
-const DRAW_STYLE_MAX = 3;
-let current_draw_style = DRAW_STYLE_NORMAL;
-
-const CAMERA_LOOK_SPEED = 0.02;
-const CAMERA_RUN_LOOK_SPEED = 0.05;
-const CAMERA_MOVEMENT_SPEED = 2;
-const CAMERA_RUN_MOVEMENT_SPEED = 10;
+const CAMERA_LOOK_SPEED = 0.001;
+const CAMERA_RUN_LOOK_SPEED = CAMERA_LOOK_SPEED*2;
+const CAMERA_MOVEMENT_SPEED = 0.1;
+const CAMERA_RUN_MOVEMENT_SPEED = CAMERA_MOVEMENT_SPEED*2;
 
 // Key Press KeyCodes
 const KEY_W = 'W'.charCodeAt (0);
@@ -48,13 +28,35 @@ const KEY_S = 'S'.charCodeAt (0);
 const KEY_D = 'D'.charCodeAt (0);
 const KEY_Q = 'Q'.charCodeAt (0);
 const KEY_Z = 'Z'.charCodeAt (0);
-const KEY_R = 'R'.charCodeAt (0);
+const KEY_T = 'T'.charCodeAt (0);
+
+let texture_atlas;
+
+let texture_null;
+let texture_dirt;
+let texture_grass_side;
+let texture_grass_top;
+let texture_sand;
+let texture_stone;
+let texture_water;
+
+let is_game_paused = false;
 
 //========================================================================
 
 function preload ()
 {
     overlay_font = loadFont ("assets/fonts/Inconsolata/Inconsolata.otf");
+    texture_atlas = loadImage ("assets/block_texture_atlas.png");
+
+    texture_null       = loadImage ("assets/texture_null.png");
+    texture_dirt       = loadImage ("assets/texture_dirt.png");
+    texture_grass_side = loadImage ("assets/texture_grass_side.png");
+    texture_grass_top  = loadImage ("assets/texture_grass_top.png");
+    texture_sand       = loadImage ("assets/texture_sand.png");
+    texture_stone      = loadImage ("assets/texture_stone.png");
+    texture_water      = loadImage ("assets/texture_water.png");
+
 }
 
 //========================================================================
@@ -149,177 +151,12 @@ function setup ()
     // Overlay
     overlay_graphics = createGraphics (100, 100);
 
-}
+    // setup block textures
+    block_setup ();
 
-//========================================================================
+    // start the game paused
+    is_game_paused = true;
 
-// draws a box face by face and omits faces that cannot be seen
-function draw_block (x, y, z)
-{
-    push ();
-    // move to block's center position
-    translate (x*BLOCK_WIDTH, -y*BLOCK_WIDTH, z*BLOCK_WIDTH);
-
-    // enable wireframe
-    if (current_draw_style == DRAW_STYLE_NORMAL_WIREFRAME || current_draw_style == DRAW_STYLE_WIREFRAME)
-    {
-        stroke (0);
-        strokeWeight (1);
-    }
-    // no wireframe
-    else
-        noStroke ();
-
-    // front face
-    // only draw if no block is immediately in front of face
-    // dont draw if camera is behind plane
-    let is_camera_infront_of_plane = camera.eyeZ >= z*BLOCK_WIDTH;
-    let is_this_block_water = blocks[x][y][z] == BLOCK_ID_WATER;
-    if ((z+1 >= CHUNK_SIZE || blocks[x][y][z+1] == BLOCK_ID_AIR || blocks[x][y][z+1] == BLOCK_ID_WATER) && is_camera_infront_of_plane)
-    {
-        push ();
-        // move to plane's position
-        translate (0, 0, BLOCK_WIDTH/2);
-        plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        pop ();
-    }
-
-    // back face
-    // only draw if no block is immediately in front of face
-    // dont draw if camera is behind plane
-    is_camera_infront_of_plane = camera.eyeZ <= z*BLOCK_WIDTH;
-    if ((z-1 < 0 || blocks[x][y][z-1] == BLOCK_ID_AIR || blocks[x][y][z-1] == BLOCK_ID_WATER) && is_camera_infront_of_plane)
-    {
-        push ();
-        translate (0, 0, -BLOCK_WIDTH/2);
-        plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        pop ();
-    }
-
-    // left face
-    // only draw if no block is immediately in front of face
-    // dont draw if camera is behind plane
-    is_camera_infront_of_plane = camera.eyeX <= x*BLOCK_WIDTH;
-    if ((x-1 < 0 || blocks[x-1][y][z] == BLOCK_ID_AIR || blocks[x-1][y][z] == BLOCK_ID_WATER) && is_camera_infront_of_plane)
-    {
-        push ();
-        rotateY (PI/2);
-        translate (0, 0, -BLOCK_WIDTH/2);
-        plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        pop ();
-    }
-
-    // right face
-    // only draw if no block is immediately in front of face
-    // dont draw if camera is behind plane
-    is_camera_infront_of_plane = camera.eyeX >= x*BLOCK_WIDTH;
-    if ((x+1 >= CHUNK_SIZE || blocks[x+1][y][z] == BLOCK_ID_AIR || blocks[x+1][y][z] == BLOCK_ID_WATER) && is_camera_infront_of_plane)
-    {
-        push ();
-        rotateY (PI/2);
-        translate (0, 0, BLOCK_WIDTH/2);
-        plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        pop ();
-    }
-
-    // top face
-    // only draw if no block is immediately in front of face
-    // dont draw if camera is behind plane
-    // is_camera_infront_of_plane = camera.eyeY >= y*BLOCK_WIDTH;
-    // y axis needs to be reversed and negated
-    is_camera_infront_of_plane = camera.eyeY <= -y*BLOCK_WIDTH;
-    if ((y+1 >= WORLD_HEIGHT || blocks[x][y+1][z] == BLOCK_ID_AIR || blocks[x][y+1][z] == BLOCK_ID_WATER) && is_camera_infront_of_plane)
-    {
-        push ();
-        rotateX (PI/2);
-        translate (0, 0, BLOCK_WIDTH/2);
-        plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        pop ();
-    }
-    
-    // bottom face
-    // only draw if no block is immediately in front of face
-    // dont draw if camera is behind plane
-    // is_camera_infront_of_plane = camera.eyeY <= y*BLOCK_WIDTH;
-    // y axis needs to be reversed and negated
-    is_camera_infront_of_plane = camera.eyeY >= -y*BLOCK_WIDTH;
-    if ((y-1 < 0 || blocks[x][y-1][z] == BLOCK_ID_AIR || blocks[x][y-1][z] == BLOCK_ID_WATER) && is_camera_infront_of_plane)
-    {
-        push ();
-        rotateX (PI/2);
-        translate (0, 0, -BLOCK_WIDTH/2);
-        plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        pop ();
-    }
-
-    pop ();
-}
-
-//========================================================================
-
-function draw_chunk ()
-{
-    // loop over x direction
-    for (let i = 0; i < CHUNK_SIZE; ++i)
-    {
-        // loop over y direction
-        for (let j = 0; j < WORLD_HEIGHT; ++j)
-        {
-            // loop over z direction
-            for (let k = 0; k < CHUNK_SIZE; ++k)
-            {
-                // draw block based on BLOCK_ID
-                if (blocks[i][j][k] == BLOCK_ID_AIR)
-                {
-                    // draw nothing
-                    
-                    // // draw outline
-                    // noFill ();
-                    // box (BLOCK_WIDTH);
-                }
-                if (blocks[i][j][k] == BLOCK_ID_GRASS)
-                {
-                    fill ("lime");
-                    // dont fill if the draw style is not normal
-                    if (current_draw_style != DRAW_STYLE_NORMAL && current_draw_style != DRAW_STYLE_NORMAL_WIREFRAME)
-                        noFill ();
-                    draw_block (i,j,k);
-                }
-                if (blocks[i][j][k] == BLOCK_ID_DIRT)
-                {
-                    fill ("#964B00");
-                    // dont fill if the draw style is not normal
-                    if (current_draw_style != DRAW_STYLE_NORMAL && current_draw_style != DRAW_STYLE_NORMAL_WIREFRAME)
-                        noFill ();
-                    draw_block (i,j,k);
-                }
-                if (blocks[i][j][k] == BLOCK_ID_STONE)
-                {
-                    fill ("gray");
-                    // dont fill if the draw style is not normal
-                    if (current_draw_style != DRAW_STYLE_NORMAL && current_draw_style != DRAW_STYLE_NORMAL_WIREFRAME)
-                        noFill ();
-                    draw_block (i,j,k);
-                }
-                if (blocks[i][j][k] == BLOCK_ID_WATER)
-                {
-                    fill (50, 100, 255, 150);
-                    // dont fill if the draw style is not normal
-                    if (current_draw_style != DRAW_STYLE_NORMAL && current_draw_style != DRAW_STYLE_NORMAL_WIREFRAME)
-                        noFill ();
-                    draw_block (i,j,k);
-                }
-                if (blocks[i][j][k] == BLOCK_ID_SAND)
-                {
-                    fill ("#C2B280");
-                    // dont fill if the draw style is not normal
-                    if (current_draw_style != DRAW_STYLE_NORMAL && current_draw_style != DRAW_STYLE_NORMAL_WIREFRAME)
-                        noFill ();
-                    draw_block (i,j,k);
-                }
-            }
-        }
-    }
 }
 
 //========================================================================
@@ -330,6 +167,10 @@ function draw ()
 
     process_key_input ();
     
+    // setup light from Sun
+    ambientLight (128, 128, 128);
+    directionalLight (128, 128, 128, 0, 1, -1);
+    
     // draw blocks
     draw_chunk ();
 
@@ -337,29 +178,84 @@ function draw ()
     push ();
     {
         // get the camera's pan and tilt
-        let pan = atan2(camera.eyeZ - camera.centerZ, camera.eyeX - camera.centerX)
-        let tilt = atan2(camera.eyeY - camera.centerY, dist(camera.centerX, camera.centerZ, camera.eyeX, camera.eyeZ))
+        let pan = atan2 (camera.eyeZ - camera.centerZ, camera.eyeX - camera.centerX);
+        let tilt = atan2 (camera.eyeY - camera.centerY, dist (camera.centerX, camera.centerZ, camera.eyeX, camera.eyeZ));
         
         // move to the camera's position to draw the overlay in front of the camera
-        translate(camera.eyeX, camera.eyeY, camera.eyeZ)
+        translate (camera.eyeX, camera.eyeY, camera.eyeZ);
         // rotate so that the overlay matches the pan and tilt of the camera
-        rotateY(-pan)
-        rotateZ(tilt + PI)
-        translate(200, 0, 0)
-        rotateY(-PI/2)
-        rotateZ(PI)
+        rotateY (-pan);
+        rotateZ (tilt + PI);
+        translate (200, 0, 0);
+        rotateY (-PI/2);
+        rotateZ (PI);
         // FPS counter
         push ();
         {
             let fps = frameRate ();
-            textSize (12);
+            textSize (10);
             textFont (overlay_font);
             translate(-150, -150, 0);
             textAlign (LEFT);
             fill (255);
-            text (Math.round (fps) + " FPS", 0, 0);
+            text (`${Math.round (fps)} FPS`, 0, 0);
         }
         pop ();
+        // camera position
+        push ();
+        {
+            textSize (10);
+            textFont (overlay_font);
+            translate(-150, -130, 0);
+            textAlign (LEFT);
+            fill (255);
+            let cam_x = Math.trunc (camera.eyeX * 100) / 100;
+            let cam_y = Math.trunc (camera.eyeY * 100) / 100;
+            let cam_z = Math.trunc (camera.eyeZ * 100) / 100;
+            let block_x = Math.trunc ( camera.eyeX / BLOCK_WIDTH * 100) / 100;
+            // y needs to be negated because P5js' y axis is flipped relative to normal conventions
+            let block_y = Math.trunc (-camera.eyeY / BLOCK_WIDTH * 100) / 100;
+            let block_z = Math.trunc ( camera.eyeZ / BLOCK_WIDTH * 100) / 100;
+            text (`x:  ${block_x} (Block), ${cam_x} (Real) \n` +
+                  `y:  ${block_y} (Block), ${cam_y} (Real) \n` +
+                  `z:  ${block_z} (Block), ${cam_z} (Real)`,
+                  0, 0);
+        }
+        pop ();
+        // draw style
+        push ();
+        {
+            textSize (10);
+            textFont (overlay_font);
+            translate(-150, -80, 0);
+            textAlign (LEFT);
+            fill (255);
+            text (DRAW_STYLE_STR_MAP.get (current_draw_style), 0, 0);
+        }
+        pop ();
+        if (is_game_paused)
+        {
+            push ();
+            // darken background
+            fill (0, 0, 0, 175);
+            rectMode (CENTER);
+            rect (0, 0, windowWidth, windowHeight);
+            // draw paused message
+            textSize (24);
+            textFont (overlay_font);
+            translate(0, 0, 0);
+            textAlign (CENTER);
+            fill (255);
+            text ("Paused", 0, 0);
+            textSize (10);
+            text ("Click anywhere to resume", 0, 24);
+            pop ();
+            // freeze game
+            // we freeze here to ensure we have the paused message
+            // before the game stops drawing
+            noLoop ();
+        }
+
     }
     pop ();
 
@@ -375,6 +271,8 @@ function process_key_input ()
     let speed = CAMERA_LOOK_SPEED;
     if (keyIsDown (SHIFT))
         speed = CAMERA_RUN_LOOK_SPEED;
+    // scale with time so that it does not change with frameRate
+    speed *= deltaTime;
     if (keyIsDown (UP_ARROW))
     {
         camera.tilt (-speed);
@@ -396,6 +294,8 @@ function process_key_input ()
     speed = CAMERA_MOVEMENT_SPEED;
     if (keyIsDown (SHIFT))
         speed = CAMERA_RUN_MOVEMENT_SPEED;
+    // scale with time so that it does not change with frameRate
+    speed *= deltaTime;
     // move forwards
     if (keyIsDown (KEY_W))
     {
@@ -436,10 +336,36 @@ function process_key_input ()
 function keyPressed ()
 {
     // change block style
-    if (keyCode == KEY_R)
+    if (keyCode == KEY_T)
     {
         // go to next draw style
         // wrapping back to the first after the last draw
         current_draw_style = (current_draw_style + 1) % DRAW_STYLE_MAX;
     }
+    // pause game
+    // I think the pointer lock hijacks this so we actually need to double-click
+    // ESCAPE to pause the game
+    if (keyCode == ESCAPE)
+    {
+        is_game_paused = true;
+    }
+    // tab out of game
+    // pause as well since tabbing-out will pull the cursor out of lock
+    if (keyCode == TAB)
+    {
+        is_game_paused = true;
+    }
+}
+
+//========================================================================
+
+function mousePressed ()
+{
+    // we need to first exit pointer lock in-case the cursor
+    // somehow got out of the lock
+    exitPointerLock ();
+    // resume the game (if it wasnt already running)
+    is_game_paused = false;
+    requestPointerLock ();
+    loop ();
 }
