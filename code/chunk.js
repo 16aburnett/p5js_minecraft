@@ -60,7 +60,8 @@ class Chunk
 
     }
 
-    draw ()
+    // draws all solid blocks (non-transparent) of this chunk 
+    draw_solid_blocks ()
     {
         push ();
         // move to chunk's position
@@ -107,6 +108,17 @@ class Chunk
                 }
             }
         }
+
+        pop ();
+    }
+
+    // draw all transparent blocks of this chunk
+    draw_transparent_blocks ()
+    {
+        push ();
+        // move to chunk's position
+        translate (this.x, this.y, this.z);
+
         // 2. next, draw transparent blocks
         // loop over x direction drawing blocks left to right
         for (let i = 0; i < CHUNK_SIZE; ++i)
@@ -126,7 +138,7 @@ class Chunk
         }
 
         pop ();
-    }   
+    }
 }
 
 //========================================================================

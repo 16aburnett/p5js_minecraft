@@ -105,11 +105,20 @@ function draw ()
     ambientLight (128, 128, 128);
     directionalLight (128, 128, 128, 0, 1, -1);
     
-    // draw blocks
+    // draw chunks
+    // we need to split up the solid blocks and transparent blocks
+    // because of weird draw order issues
+    // these issues are resolved by first drawing all the solid blocks
+    // and then drawing all the transparent blocks so that solid blocks
+    // can be seen through the transparent blocks.
+    // draw solid blocks of each chunk
     for (let chunk of chunk_map.values ())
-        chunk.draw ();
+        chunk.draw_solid_blocks ();
+    // draw transparent blocks of each chunk
+    for (let chunk of chunk_map.values ())
+        chunk.draw_transparent_blocks ();
 
-    // Draw overlay elements
+    // draw overlay elements
     draw_overlay ();
 }
 
