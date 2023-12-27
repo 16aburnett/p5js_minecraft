@@ -29,6 +29,7 @@ const KEY_D = 'D'.charCodeAt (0);
 const KEY_Q = 'Q'.charCodeAt (0);
 const KEY_Z = 'Z'.charCodeAt (0);
 const KEY_T = 'T'.charCodeAt (0);
+const KEY_G = 'G'.charCodeAt (0);
 
 let texture_atlas;
 
@@ -41,6 +42,10 @@ let texture_stone;
 let texture_water;
 
 let is_game_paused = false;
+
+// quick access map of the currently loaded chunks
+// this enables quick lookup using the chunk_xi and chunk_zi indices
+let chunk_map;
 
 //========================================================================
 
@@ -61,62 +66,6 @@ function preload ()
 
 //========================================================================
 
-function generate_terrain_for_chunk ()
-{
-    for (let x = 0; x < CHUNK_SIZE; ++x)
-    {
-        for (let z = 0; z < CHUNK_SIZE; ++z)
-        {
-            // use noise to determine where to place the surface
-            let noise_scale = 0.06;
-            let noise_range_low = 0;
-            let noise_range_high = 1;
-            let noise_range = noise_range_high - noise_range_low;
-            let noise_value = noise (noise_scale * x, noise_scale * z);
-            let sea_level = Math.round (WORLD_HEIGHT/2);
-            let surface_height_range_low = sea_level - 8;
-            let surface_height_range_high = sea_level + 8;
-            let surface_height_range = surface_height_range_high - surface_height_range_low;
-            let surface_height = Math.floor ((((noise_value - noise_range_low) * surface_height_range) / noise_range) + surface_height_range_low);
-            // place grass at height if above water
-            if (surface_height >= sea_level)
-                // above sea level so make it grass
-                blocks[x][surface_height][z] = BLOCK_ID_GRASS;
-            else
-                // underwater so make the surface sand
-                blocks[x][surface_height][z] = BLOCK_ID_SAND;
-            // place dirt below
-            let num_dirt = 3;
-            for (let d = 1; d <= num_dirt; ++d)
-            {
-                // ensure in bounds
-                if (surface_height-d < 0)
-                    break;
-                // place dirt
-                blocks[x][surface_height-d][z] = BLOCK_ID_DIRT;
-            }
-            // place stone below
-            let y = surface_height-num_dirt-1;
-            while (y >= 0)
-            {
-                // place stone
-                blocks[x][y][z] = BLOCK_ID_STONE;
-                // advance to next height
-                --y;
-            }
-            // place water on top if below sea level
-            y = surface_height+1;
-            while (y <= sea_level)
-            {
-                blocks[x][y][z] = BLOCK_ID_WATER;
-                ++y;
-            }
-        }
-    }
-}
-
-//========================================================================
-
 function setup ()
 {
     createCanvas (windowWidth, windowHeight, WEBGL);
@@ -126,27 +75,12 @@ function setup ()
     camera = createCamera ();
     perspective (radians (FOV_DEGREES), width / height, 0.1, 8000);
 
-    // start with just one chunk of blocks
-    // [ x ][ y ][ z ]
-    // [col][row][dep]
-    for (let x = 0; x < CHUNK_SIZE; ++x)
-    {
-        // add new col/x-value
-        blocks.push ([]);
-        for (let y = 0; y < WORLD_HEIGHT; ++y)
-        {
-            // add new row/y-value
-            blocks[x].push ([]);
-            for (let z = 0; z < CHUNK_SIZE; ++z)
-            {
-                // set new depth/z-value to air (ie no block)
-                blocks[x][y].push (BLOCK_ID_AIR);
-            }
-        }
-    }
-
-    // generate terrain via perlin noise
-    generate_terrain_for_chunk ();
+    // initialize the chunk map
+    chunk_map = new Map ();
+    chunk_map.set ("0,0", new Chunk (0, 0, 0));
+    chunk_map.set ("0,1", new Chunk (0, 0, 1));
+    chunk_map.set ("1,0", new Chunk (1, 0, 0));
+    chunk_map.set ("1,1", new Chunk (1, 0, 1));
 
     // Overlay
     overlay_graphics = createGraphics (100, 100);
@@ -172,9 +106,18 @@ function draw ()
     directionalLight (128, 128, 128, 0, 1, -1);
     
     // draw blocks
-    draw_chunk ();
+    for (let chunk of chunk_map.values ())
+        chunk.draw ();
 
     // Draw overlay elements
+    draw_overlay ();
+}
+
+//========================================================================
+
+function draw_overlay ()
+{
+
     push ();
     {
         // get the camera's pan and tilt
@@ -216,9 +159,13 @@ function draw ()
             // y needs to be negated because P5js' y axis is flipped relative to normal conventions
             let block_y = Math.trunc (-camera.eyeY / BLOCK_WIDTH * 100) / 100;
             let block_z = Math.trunc ( camera.eyeZ / BLOCK_WIDTH * 100) / 100;
-            text (`x:  ${block_x} (Block), ${cam_x} (Real) \n` +
-                  `y:  ${block_y} (Block), ${cam_y} (Real) \n` +
-                  `z:  ${block_z} (Block), ${cam_z} (Real)`,
+            let chunk_x = Math.floor ( camera.eyeX / BLOCK_WIDTH / CHUNK_SIZE);
+            // chunk y position should always be 0 bc chunks dont stack verically
+            let chunk_y = 0;
+            let chunk_z = Math.floor ( camera.eyeZ / BLOCK_WIDTH / CHUNK_SIZE);
+            text (`x:  ${block_x} (Block), ${cam_x} (Real), ${chunk_x} (Chunk)\n` +
+                  `y:  ${block_y} (Block), ${cam_y} (Real), ${chunk_y} (Chunk)\n` +
+                  `z:  ${block_z} (Block), ${cam_z} (Real), ${chunk_z} (Chunk)`,
                   0, 0);
         }
         pop ();
@@ -230,7 +177,7 @@ function draw ()
             translate(-150, -80, 0);
             textAlign (LEFT);
             fill (255);
-            text (DRAW_STYLE_STR_MAP.get (current_draw_style), 0, 0);
+            text (`draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}`, 0, 0);
         }
         pop ();
         if (is_game_paused)
@@ -258,8 +205,6 @@ function draw ()
 
     }
     pop ();
-
-
 }
 
 //========================================================================
@@ -341,6 +286,11 @@ function keyPressed ()
         // go to next draw style
         // wrapping back to the first after the last draw
         current_draw_style = (current_draw_style + 1) % DRAW_STYLE_MAX;
+    }
+    // toggle chunk debug grid lines
+    if (keyCode == KEY_G)
+    {
+        is_chunk_debug_border_shown = !is_chunk_debug_border_shown;
     }
     // pause game
     // I think the pointer lock hijacks this so we actually need to double-click
