@@ -13,6 +13,7 @@ cull faces that are obstructed by geometry
 - havent seen this yet, but caves come to mind
 
 
+- had to put touchpad sensitivity to "most sensitive" to get rid of the keypress delay
 
 
 - [] skybox that follows camera
@@ -35,3 +36,15 @@ https://p5js.org/learn/getting-started-in-webgl-coords-and-transform.html
 
 this is good material
 - https://www.pearson.com/content/dam/one-dot-com/one-dot-com/us/en/files/Proceedings-ICTCM2019-PaulBouthellier.pdf
+
+
+
+# Collision detection
+take the previous frame's position
+calculate the new frame's position -> we're in the update loop for this new position
+determine if the new position collided with a block
+if collided, reset the position to right before the collided block 
+    but retain movement in other directions
+if not, move freely
+
+- collisions can be detected in the 3 directions separately

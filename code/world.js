@@ -1,0 +1,129 @@
+// Minecraft in P5.js
+// World: manages the blocks and chunks of the world
+// and is the interface between blocks and other components
+// Author: Amy Burnett
+//========================================================================
+// Globals
+
+// this should be 256
+const WORLD_HEIGHT = 50;
+// this should be 65
+const SEA_LEVEL = 20
+// a chunk is a CHUNK_SIZE*CHUNK_SIZE*WORLD_HEIGHT subset of the full map
+const CHUNK_SIZE = 16;
+
+//========================================================================
+
+class World
+{
+    constructor ()
+    {
+        // quick access map of the currently loaded chunks
+        // this enables quick lookup using the chunk_xi and chunk_zi indices
+        // currently chunks only divide up the x and z axes so y is not needed
+        this.chunk_map = new Map ();
+
+        // initialize the chunk map
+        this.chunk_map.set ("0,0", new Chunk (0, 0, 0));
+        this.chunk_map.set ("0,1", new Chunk (0, 0, 1));
+        this.chunk_map.set ("1,0", new Chunk (1, 0, 0));
+        this.chunk_map.set ("1,1", new Chunk (1, 0, 1));
+    }
+    
+    // returns the block type at the given block indices.
+    // returns null if indices are invalid or if the containing 
+    // chunk is not loaded.
+    get_block_type (block_xi, block_yi, block_zi)
+    {
+        // TODO: this might be able to accept coords if we
+        // floor them to indices
+
+        // ensure y is valid
+        if (block_yi >= WORLD_HEIGHT || block_yi < 0)
+            return null;
+
+        let chunk_xi = Math.floor (block_xi / CHUNK_SIZE);
+        // let chunk_yi = Math.floor (block_yi / WORLD_HEIGHT);
+        let chunk_zi = Math.floor (block_zi / CHUNK_SIZE);
+
+        // ensure chunk is loaded
+        if (!this.chunk_map.has (`${chunk_xi},${chunk_zi}`))
+            return null;
+
+        // convert block idx to chunk block idx
+        // ignoring chunk_block_yi bc chunks occupy full world height atm
+        let [chunk_block_xi, chunk_block_yi, chunk_block_zi] = convert_block_index_to_chunk_block_index (block_xi, block_yi, block_zi);
+        
+        // return the block
+        return this.chunk_map.get (`${chunk_xi},${chunk_zi}`).blocks[chunk_block_xi][block_yi][chunk_block_zi];
+    }
+
+    update ()
+    {
+        
+    }
+
+    draw ()
+    {
+        // draw chunks
+        // we need to split up the solid blocks and transparent blocks
+        // because of weird draw order issues
+        // these issues are resolved by first drawing all the solid blocks
+        // and then drawing all the transparent blocks so that solid blocks
+        // can be seen through the transparent blocks.
+        // draw solid blocks of each chunk
+        for (let chunk of this.chunk_map.values ())
+            chunk.draw_solid_blocks ();
+        // draw transparent blocks of each chunk
+        for (let chunk of this.chunk_map.values ())
+            chunk.draw_transparent_blocks ();
+    }
+}
+
+//========================================================================
+// helper functions
+
+// converts the given world coordinates to the containing block index
+// does not ensure indices are valid
+function convert_world_to_block_index (world_x, world_y, world_z)
+{
+    let block_xi = Math.floor ( world_x / BLOCK_WIDTH);
+    let block_yi = Math.floor (-world_y / BLOCK_WIDTH);
+    let block_zi = Math.floor ( world_z / BLOCK_WIDTH);
+    return [block_xi, block_yi, block_zi];
+}
+
+//========================================================================
+
+// converts the given world coordinates to block coordinates
+function convert_world_to_block_coords (world_x, world_y, world_z)
+{
+    let block_x =  world_x / BLOCK_WIDTH;
+    let block_y = -world_y / BLOCK_WIDTH;
+    let block_z =  world_z / BLOCK_WIDTH;
+    return [block_x, block_y, block_z];
+}
+
+//========================================================================
+
+// converts the given world coordinates to the containing block index
+// relative to the containing chunk
+// chunk indices go from 0 to CHUNK_SIZE
+function convert_world_to_chunk_block_index (world_x, world_y, world_z)
+{
+    let [block_xi, block_yi, block_zi] = convert_world_to_block_index (world_x, world_y, world_z);
+    return convert_block_index_to_chunk_block_index (block_xi, block_yi, block_zi);
+}
+
+//========================================================================
+
+// converts the given world coordinates to the containing block index
+// relative to the containing chunk
+// chunk indices go from 0 to CHUNK_SIZE
+function convert_block_index_to_chunk_block_index (block_xi, block_yi, block_zi)
+{
+    let chunk_block_xi = block_xi < 0 ? (block_xi + 1) % CHUNK_SIZE + (CHUNK_SIZE - 1) : block_xi % CHUNK_SIZE;
+    let chunk_block_yi = block_yi < 0 ? (block_yi + 1) % CHUNK_SIZE + (CHUNK_SIZE - 1) : block_yi % CHUNK_SIZE;
+    let chunk_block_zi = block_zi < 0 ? (block_zi + 1) % CHUNK_SIZE + (CHUNK_SIZE - 1) : block_zi % CHUNK_SIZE;
+    return [chunk_block_xi, chunk_block_yi, chunk_block_zi];
+}

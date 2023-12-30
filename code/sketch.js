@@ -3,23 +3,10 @@
 //========================================================================
 // Globals
 
-// this should be 256
-const WORLD_HEIGHT = 50;
-// this should be 65
-const SEA_LEVEL = 20
-// a chunk is a CHUNK_SIZE*CHUNK_SIZE*WORLD_HEIGHT subset of the full map
-const CHUNK_SIZE = 16;
-
-let camera;
-const FOV_DEGREES = 90;
+let player;
 
 let overlay_graphics;
 let overlay_font;
-
-const CAMERA_LOOK_SPEED = 0.001;
-const CAMERA_RUN_LOOK_SPEED = CAMERA_LOOK_SPEED*2;
-const CAMERA_MOVEMENT_SPEED = 0.1;
-const CAMERA_RUN_MOVEMENT_SPEED = CAMERA_MOVEMENT_SPEED*2;
 
 // Key Press KeyCodes
 const KEY_W = 'W'.charCodeAt (0);
@@ -30,6 +17,7 @@ const KEY_Q = 'Q'.charCodeAt (0);
 const KEY_Z = 'Z'.charCodeAt (0);
 const KEY_T = 'T'.charCodeAt (0);
 const KEY_G = 'G'.charCodeAt (0);
+const KEY_SPACEBAR = ' '.charCodeAt (0);
 
 let texture_atlas;
 
@@ -43,9 +31,7 @@ let texture_water;
 
 let is_game_paused = false;
 
-// quick access map of the currently loaded chunks
-// this enables quick lookup using the chunk_xi and chunk_zi indices
-let chunk_map;
+let world;
 
 //========================================================================
 
@@ -72,20 +58,19 @@ function setup ()
 
     angleMode (RADIANS);
 
-    camera = createCamera ();
+    // setup player
+    player = new Player (createCamera ());
     perspective (radians (FOV_DEGREES), width / height, 0.1, 8000);
+    // move player to the first chunk
+    player.set_position (0, -WORLD_HEIGHT*BLOCK_WIDTH, 0);
 
-    // initialize the chunk map
-    chunk_map = new Map ();
-    chunk_map.set ("0,0", new Chunk (0, 0, 0));
-    chunk_map.set ("0,1", new Chunk (0, 0, 1));
-    chunk_map.set ("1,0", new Chunk (1, 0, 0));
-    chunk_map.set ("1,1", new Chunk (1, 0, 1));
+    // Initialize the world
+    world = new World ();
 
     // Overlay
     overlay_graphics = createGraphics (100, 100);
 
-    // setup block textures
+    // setup block textures and other static block info
     block_setup ();
 
     // start the game paused
@@ -100,23 +85,16 @@ function draw ()
     background (150, 200, 255);
 
     process_key_input ();
+
+    player.update ();
+    player.draw ();
     
     // setup light from Sun
     ambientLight (128, 128, 128);
     directionalLight (128, 128, 128, 0, 1, -1);
     
-    // draw chunks
-    // we need to split up the solid blocks and transparent blocks
-    // because of weird draw order issues
-    // these issues are resolved by first drawing all the solid blocks
-    // and then drawing all the transparent blocks so that solid blocks
-    // can be seen through the transparent blocks.
-    // draw solid blocks of each chunk
-    for (let chunk of chunk_map.values ())
-        chunk.draw_solid_blocks ();
-    // draw transparent blocks of each chunk
-    for (let chunk of chunk_map.values ())
-        chunk.draw_transparent_blocks ();
+    // draw world
+    world.draw ();
 
     // draw overlay elements
     draw_overlay ();
@@ -130,65 +108,62 @@ function draw_overlay ()
     push ();
     {
         // get the camera's pan and tilt
-        let pan = atan2 (camera.eyeZ - camera.centerZ, camera.eyeX - camera.centerX);
-        let tilt = atan2 (camera.eyeY - camera.centerY, dist (camera.centerX, camera.centerZ, camera.eyeX, camera.eyeZ));
+        let pan = atan2 (player.camera.eyeZ - player.camera.centerZ, player.camera.eyeX - player.camera.centerX);
+        let tilt = atan2 (player.camera.eyeY - player.camera.centerY, dist (player.camera.centerX, player.camera.centerZ, player.camera.eyeX, player.camera.eyeZ));
         
         // move to the camera's position to draw the overlay in front of the camera
-        translate (camera.eyeX, camera.eyeY, camera.eyeZ);
+        translate (player.camera.eyeX, player.camera.eyeY, player.camera.eyeZ);
         // rotate so that the overlay matches the pan and tilt of the camera
         rotateY (-pan);
         rotateZ (tilt + PI);
         translate (200, 0, 0);
         rotateY (-PI/2);
         rotateZ (PI);
-        // FPS counter
+        // left panel debug text
         push ();
         {
-            let fps = frameRate ();
+            // style
             textSize (10);
             textFont (overlay_font);
             translate(-150, -150, 0);
             textAlign (LEFT);
             fill (255);
-            text (`${Math.round (fps)} FPS`, 0, 0);
-        }
-        pop ();
-        // camera position
-        push ();
-        {
-            textSize (10);
-            textFont (overlay_font);
-            translate(-150, -130, 0);
-            textAlign (LEFT);
-            fill (255);
-            let cam_x = Math.trunc (camera.eyeX * 100) / 100;
-            let cam_y = Math.trunc (camera.eyeY * 100) / 100;
-            let cam_z = Math.trunc (camera.eyeZ * 100) / 100;
-            let block_x = Math.trunc ( camera.eyeX / BLOCK_WIDTH * 100) / 100;
-            // y needs to be negated because P5js' y axis is flipped relative to normal conventions
-            let block_y = Math.trunc (-camera.eyeY / BLOCK_WIDTH * 100) / 100;
-            let block_z = Math.trunc ( camera.eyeZ / BLOCK_WIDTH * 100) / 100;
-            let chunk_x = Math.floor ( camera.eyeX / BLOCK_WIDTH / CHUNK_SIZE);
-            // chunk y position should always be 0 bc chunks dont stack verically
+            // load data
+            let fps = Math.round (frameRate ());
+            let x = Math.floor (player.position.x * 100) / 100;
+            let y = Math.floor (player.position.y * 100) / 100;
+            let z = Math.floor (player.position.z * 100) / 100;
+            let tilt = Math.floor (player.tilt_amount * 100) / 100;
+            let pan = Math.floor (player.pan_amount * 100) / 100;
+            let [block_x, block_y, block_z] = convert_world_to_block_coords (player.position.x, player.position.y, player.position.z);
+            block_x = Math.floor (block_x * 100) / 100;
+            block_y = Math.floor (block_y * 100) / 100;
+            block_z = Math.floor (block_z * 100) / 100;
+            let [block_xi, block_yi, block_zi] = convert_world_to_block_index (player.position.x, player.position.y, player.position.z);
+            block_xi = Math.floor (block_xi * 100) / 100;
+            block_yi = Math.floor (block_yi * 100) / 100;
+            block_zi = Math.floor (block_zi * 100) / 100;
+            let chunk_x = Math.floor ( player.camera.eyeX / BLOCK_WIDTH / CHUNK_SIZE);
             let chunk_y = 0;
-            let chunk_z = Math.floor ( camera.eyeZ / BLOCK_WIDTH / CHUNK_SIZE);
-            text (`x:  ${block_x} (Block), ${cam_x} (Real), ${chunk_x} (Chunk)\n` +
-                  `y:  ${block_y} (Block), ${cam_y} (Real), ${chunk_y} (Chunk)\n` +
-                  `z:  ${block_z} (Block), ${cam_z} (Real), ${chunk_z} (Chunk)`,
+            let chunk_z = Math.floor ( player.camera.eyeZ / BLOCK_WIDTH / CHUNK_SIZE);
+            let [chunk_block_xi, chunk_block_yi, chunk_block_zi] = convert_world_to_chunk_block_index (player.position.x, player.position.y, player.position.z);
+            let block_type = world.get_block_type (block_xi, block_yi, block_zi);
+            let block_type_str = BLOCK_ID_STR_MAP.get (block_type);
+            // draw debug text
+            text (`FPS: ${fps}\n` +
+                  `tilt:       ${tilt.toFixed (2)} (RAD), ${degrees (tilt).toFixed (2)} (DEG)\n` +
+                  `pan:        ${pan.toFixed (2)} (RAD), ${degrees (pan).toFixed (2)} (DEG)\n` +
+                  `XYZ:        ${x}, ${y}, ${z}\n` +
+                  `block:      ${block_x}, ${block_y}, ${block_z}\n` +
+                  `block_idx:  ${block_xi}, ${block_yi}, ${block_zi}\n` +
+                  `chunk_idx:  ${chunk_x}, ${chunk_y}, ${chunk_z}\n` +
+                  `chunk_block_idx: ${chunk_block_xi}, ${chunk_block_yi}, ${chunk_block_zi}\n` +
+                  `block id:   ${block_type_str}\n` +
+                  `draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}`,
                   0, 0);
         }
         pop ();
-        // draw style
-        push ();
-        {
-            textSize (10);
-            textFont (overlay_font);
-            translate(-150, -80, 0);
-            textAlign (LEFT);
-            fill (255);
-            text (`draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}`, 0, 0);
-        }
-        pop ();
+        // draw paused text, if paused
         if (is_game_paused)
         {
             push ();
@@ -199,7 +174,6 @@ function draw_overlay ()
             // draw paused message
             textSize (24);
             textFont (overlay_font);
-            translate(0, 0, 0);
             textAlign (CENTER);
             fill (255);
             text ("Paused", 0, 0);
@@ -229,19 +203,19 @@ function process_key_input ()
     speed *= deltaTime;
     if (keyIsDown (UP_ARROW))
     {
-        camera.tilt (-speed);
+        player.tilt (-speed);
     }
     if (keyIsDown (RIGHT_ARROW))
     {
-        camera.pan (-speed);
+        player.pan (speed);
     }
     if (keyIsDown (DOWN_ARROW))
     {
-        camera.tilt (speed);
+        player.tilt (speed);
     }
     if (keyIsDown (LEFT_ARROW))
     {
-        camera.pan (speed);
+        player.pan (-speed);
     }
 
     // camera movement
@@ -253,32 +227,37 @@ function process_key_input ()
     // move forwards
     if (keyIsDown (KEY_W))
     {
-        camera.move (0, 0, -speed);
+        player.move_z (speed);
     }
     // move backwards
     if (keyIsDown (KEY_S))
     {
-        camera.move (0, 0, speed);
+        player.move_z (-speed);
     }
     // move left
     if (keyIsDown (KEY_A))
     {
-        camera.move (-speed, 0, 0);
+        player.move_x (speed);
     }
     // move right
     if (keyIsDown (KEY_D))
     {
-        camera.move (speed, 0, 0);
+        player.move_x (-speed);
     }
     // move up
     if (keyIsDown (KEY_Q))
     {
-        camera.move (0, -speed, 0);
+        player.move_y (-speed);
     }
     // move down
     if (keyIsDown (KEY_Z))
     {
-        camera.move (0, speed, 0);
+        player.move_y (speed);
+    }
+
+    if (keyIsDown (KEY_SPACEBAR))
+    {
+        player.jump ();
     }
 
 }
@@ -328,3 +307,6 @@ function mousePressed ()
     requestPointerLock ();
     loop ();
 }
+
+//========================================================================
+

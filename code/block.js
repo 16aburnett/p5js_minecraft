@@ -13,6 +13,13 @@ const BLOCK_ID_DIRT       = 2;
 const BLOCK_ID_STONE      = 3;
 const BLOCK_ID_WATER      = 4;
 const BLOCK_ID_SAND       = 5;
+const BLOCK_ID_STR_MAP = new Map ();
+BLOCK_ID_STR_MAP.set (BLOCK_ID_AIR  , "BLOCK_ID_AIR");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_GRASS, "BLOCK_ID_GRASS");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_DIRT , "BLOCK_ID_DIRT");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_STONE, "BLOCK_ID_STONE");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_WATER, "BLOCK_ID_WATER");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_SAND , "BLOCK_ID_SAND");
 
 const TEXTURE_TOP    = 0;
 const TEXTURE_SIDE   = 1;
@@ -187,20 +194,20 @@ function draw_block (x, y, z, chunk)
 
     // front face
     // only draw if the next block is transparent and the camera is not behind the plane
-    let is_camera_infront_of_plane = camera.eyeZ >= world_z;
+    let is_camera_infront_of_plane = player.camera.eyeZ >= world_z;
     let is_this_block_water = chunk.blocks[x][y][z] == BLOCK_ID_WATER;
-    let is_last_chunk_in_dir = !chunk_map.has (`${chunk.xi},${chunk.zi+1}`);
+    let is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.zi+1}`);
     let is_next_block_in_this_chunk = 0 <= z+1 && z+1 < CHUNK_SIZE;
     let is_next_block_air = 
         (is_next_block_in_this_chunk && chunk.blocks[x][y][z+1] == BLOCK_ID_AIR) || 
         (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
         /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && chunk_map.get (`${chunk.xi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_AIR);
+        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_AIR);
     let is_next_block_water = 
         // ensure current block is not water
         !is_this_block_water &&
         ((is_next_block_in_this_chunk && chunk.blocks[x][y][z+1] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && chunk_map.get (`${chunk.xi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_WATER));
+        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_WATER));
     let is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
@@ -253,20 +260,20 @@ function draw_block (x, y, z, chunk)
 
     // back face
     // only draw if the next block is transparent and the camera is not behind the plane
-    is_camera_infront_of_plane = camera.eyeZ <= world_z;
+    is_camera_infront_of_plane = player.camera.eyeZ <= world_z;
     is_this_block_water = chunk.blocks[x][y][z] == BLOCK_ID_WATER;
-    is_last_chunk_in_dir = !chunk_map.has (`${chunk.xi},${chunk.zi-1}`);
+    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.zi-1}`);
     is_next_block_in_this_chunk = 0 <= z-1 && z-1 < CHUNK_SIZE;
     is_next_block_air = 
         (is_next_block_in_this_chunk && chunk.blocks[x][y][z-1] == BLOCK_ID_AIR) || 
         (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
         /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && chunk_map.get (`${chunk.xi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_AIR);
+        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_AIR);
     is_next_block_water = 
         // ensure current block is not water
         !is_this_block_water &&
         ((is_next_block_in_this_chunk && chunk.blocks[x][y][z-1] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && chunk_map.get (`${chunk.xi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_WATER));
+        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_WATER));
     is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
@@ -318,20 +325,20 @@ function draw_block (x, y, z, chunk)
 
     // left face
     // only draw if the next block is transparent and the camera is not behind the plane
-    is_camera_infront_of_plane = camera.eyeX <= world_x;
+    is_camera_infront_of_plane = player.camera.eyeX <= world_x;
     is_this_block_water = chunk.blocks[x][y][z] == BLOCK_ID_WATER;
-    is_last_chunk_in_dir = !chunk_map.has (`${chunk.xi-1},${chunk.zi}`);
+    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi-1},${chunk.zi}`);
     is_next_block_in_this_chunk = 0 <= x-1 && x-1 < CHUNK_SIZE;
     is_next_block_air = 
         (is_next_block_in_this_chunk && chunk.blocks[x-1][y][z] == BLOCK_ID_AIR) || 
         (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
         /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && chunk_map.get (`${chunk.xi-1},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_AIR);
+        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi-1},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_AIR);
     is_next_block_water = 
         // ensure current block is not water
         !is_this_block_water &&
         ((is_next_block_in_this_chunk && chunk.blocks[x-1][y][z] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && chunk_map.get (`${chunk.xi-1},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_WATER));
+        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi-1},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_WATER));
     is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
@@ -381,20 +388,20 @@ function draw_block (x, y, z, chunk)
 
     // right face
     // only draw if the next block is transparent and the camera is not behind the plane
-    is_camera_infront_of_plane = camera.eyeX >= world_x;
+    is_camera_infront_of_plane = player.camera.eyeX >= world_x;
     is_this_block_water = chunk.blocks[x][y][z] == BLOCK_ID_WATER;
-    is_last_chunk_in_dir = !chunk_map.has (`${chunk.xi+1},${chunk.zi}`);
+    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi+1},${chunk.zi}`);
     is_next_block_in_this_chunk = 0 <= x+1 && x+1 < CHUNK_SIZE;
     is_next_block_air = 
         (is_next_block_in_this_chunk && chunk.blocks[x+1][y][z] == BLOCK_ID_AIR) || 
         (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
         /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && chunk_map.get (`${chunk.xi+1},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_AIR);
+        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi+1},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_AIR);
     is_next_block_water = 
         // ensure current block is not water
         !is_this_block_water &&
         ((is_next_block_in_this_chunk && chunk.blocks[x+1][y][z] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && chunk_map.get (`${chunk.xi+1},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_WATER));
+        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi+1},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_WATER));
     is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
@@ -448,7 +455,7 @@ function draw_block (x, y, z, chunk)
     // dont draw if camera is behind plane
     // is_camera_infront_of_plane = camera.eyeY >= y*BLOCK_WIDTH;
     // y axis needs to be reversed and negated
-    is_camera_infront_of_plane = camera.eyeY <= world_y;
+    is_camera_infront_of_plane = player.camera.eyeY <= world_y;
     if ((y+1 >= WORLD_HEIGHT || chunk.blocks[x][y+1][z] == BLOCK_ID_AIR || (chunk.blocks[x][y+1][z] == BLOCK_ID_WATER && !is_this_block_water)) && is_camera_infront_of_plane)
     {
         push ();
@@ -500,7 +507,7 @@ function draw_block (x, y, z, chunk)
     // dont draw if camera is behind plane
     // is_camera_infront_of_plane = camera.eyeY <= y*BLOCK_WIDTH;
     // y axis needs to be reversed and negated
-    is_camera_infront_of_plane = camera.eyeY >= world_y;
+    is_camera_infront_of_plane = player.camera.eyeY >= world_y;
     if ((y-1 < 0 || chunk.blocks[x][y-1][z] == BLOCK_ID_AIR || (chunk.blocks[x][y-1][z] == BLOCK_ID_WATER && !is_this_block_water)) && is_camera_infront_of_plane)
     {
         push ();

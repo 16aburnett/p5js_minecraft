@@ -74,8 +74,8 @@ class Chunk
             // boxes are draw from the center so we need to align to the chunk
             translate (CHUNK_SIZE * BLOCK_WIDTH / 2, -CHUNK_SIZE * WORLD_HEIGHT / 2, CHUNK_SIZE * BLOCK_WIDTH / 2);
             // highlight if camera is in this chunk
-            if (this.x <= camera.eyeX && camera.eyeX <= this.x + CHUNK_SIZE * BLOCK_WIDTH && 
-                this.z <= camera.eyeZ && camera.eyeZ <= this.z + CHUNK_SIZE * BLOCK_WIDTH)
+            if (this.x <= player.camera.eyeX && player.camera.eyeX <= this.x + CHUNK_SIZE * BLOCK_WIDTH && 
+                this.z <= player.camera.eyeZ && player.camera.eyeZ <= this.z + CHUNK_SIZE * BLOCK_WIDTH)
             {
                 stroke (255, 255, 0);
                 strokeWeight (2);
@@ -139,6 +139,7 @@ class Chunk
 
         pop ();
     }
+
 }
 
 //========================================================================
@@ -196,3 +197,5 @@ function generate_terrain_for_chunk (chunk)
         }
     }
 }
+
+//========================================================================
