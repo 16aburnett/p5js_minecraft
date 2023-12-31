@@ -10,17 +10,17 @@ let is_chunk_debug_border_shown = true;
 
 class Chunk
 {
-    constructor (xi=0, yi=0, zi=0)
+    constructor (xi, yi, zi)
     {
         // position of this chunk
         // these are block index positions, not world positions
         this.xi = xi;
-        this.yi = yi; // since we dont have vertical chunks, this should not be used
+        this.yi = yi;
         this.zi = zi;
         // these represent the world location for this chunk
-        this.x = this.xi * CHUNK_SIZE * BLOCK_WIDTH;
-        this.y = this.yi * CHUNK_SIZE * BLOCK_WIDTH;
-        this.z = this.zi * CHUNK_SIZE * BLOCK_WIDTH;
+        this.x =  this.xi * CHUNK_SIZE * BLOCK_WIDTH;
+        this.y = -this.yi * CHUNK_SIZE * BLOCK_WIDTH;
+        this.z =  this.zi * CHUNK_SIZE * BLOCK_WIDTH;
         // 3D array that stores block ids for this chunk
         // x, y, z
         this.blocks = [];
@@ -32,7 +32,7 @@ class Chunk
         {
             // add new col/x-value
             this.blocks.push ([]);
-            for (let y = 0; y < WORLD_HEIGHT; ++y)
+            for (let y = 0; y < CHUNK_SIZE; ++y)
             {
                 // add new row/y-value
                 this.blocks[x].push ([]);
@@ -72,9 +72,10 @@ class Chunk
         {
             push ();
             // boxes are draw from the center so we need to align to the chunk
-            translate (CHUNK_SIZE * BLOCK_WIDTH / 2, -CHUNK_SIZE * WORLD_HEIGHT / 2, CHUNK_SIZE * BLOCK_WIDTH / 2);
+            translate (CHUNK_SIZE * BLOCK_WIDTH / 2, -CHUNK_SIZE * BLOCK_WIDTH / 2, CHUNK_SIZE * BLOCK_WIDTH / 2);
             // highlight if camera is in this chunk
-            if (this.x <= player.camera.eyeX && player.camera.eyeX <= this.x + CHUNK_SIZE * BLOCK_WIDTH && 
+            if (this.x <= player.camera.eyeX && player.camera.eyeX <= this.x + CHUNK_SIZE * BLOCK_WIDTH &&
+                this.y >= player.camera.eyeY && player.camera.eyeY >= this.y - CHUNK_SIZE * BLOCK_WIDTH &&
                 this.z <= player.camera.eyeZ && player.camera.eyeZ <= this.z + CHUNK_SIZE * BLOCK_WIDTH)
             {
                 stroke (255, 255, 0);
@@ -86,7 +87,7 @@ class Chunk
                 strokeWeight (1);
             }
             noFill ();
-            box (CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * WORLD_HEIGHT, CHUNK_SIZE * BLOCK_WIDTH);
+            box (CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * BLOCK_WIDTH);
             pop ();
         }
 
@@ -95,7 +96,7 @@ class Chunk
         for (let i = 0; i < CHUNK_SIZE; ++i)
         {
             // loop over y direction drawing blocks bottom to top
-            for (let j = 0; j < WORLD_HEIGHT; ++j)
+            for (let j = 0; j < CHUNK_SIZE; ++j)
             {
                 // loop over z direction drawing blocks back to forward
                 for (let k = 0; k < CHUNK_SIZE; ++k)
@@ -104,7 +105,7 @@ class Chunk
                     // we will do another pass for transparent blocks
                     let is_transparent_block = this.blocks[i][j][k] == BLOCK_ID_WATER;
                     if (!is_transparent_block)
-                        draw_block (i,j,k, this);
+                        draw_block (i, j, k, this);
                 }
             }
         }
@@ -124,7 +125,7 @@ class Chunk
         for (let i = 0; i < CHUNK_SIZE; ++i)
         {
             // loop over y direction drawing blocks bottom to top
-            for (let j = 0; j < WORLD_HEIGHT; ++j)
+            for (let j = 0; j < CHUNK_SIZE; ++j)
             {
                 // loop over z direction drawing blocks back to forward
                 for (let k = 0; k < CHUNK_SIZE; ++k)
@@ -132,14 +133,13 @@ class Chunk
                     // ignore non-transparent blocks
                     let is_transparent_block = this.blocks[i][j][k] == BLOCK_ID_WATER;
                     if (is_transparent_block)
-                        draw_block (i,j,k, this);
+                        draw_block (i, j, k, this);
                 }
             }
         }
 
         pop ();
     }
-
 }
 
 //========================================================================
@@ -160,39 +160,61 @@ function generate_terrain_for_chunk (chunk)
             let surface_height_range_low = sea_level - 8;
             let surface_height_range_high = sea_level + 8;
             let surface_height_range = surface_height_range_high - surface_height_range_low;
-            let surface_height = Math.floor ((((noise_value - noise_range_low) * surface_height_range) / noise_range) + surface_height_range_low);
+            let block_y_surface_height = Math.floor ((((noise_value - noise_range_low) * surface_height_range) / noise_range) + surface_height_range_low);
+            let block_y_min = CHUNK_SIZE * chunk.yi;
+            let block_y_max = CHUNK_SIZE * (chunk.yi + 1);
             // place grass at height if above water
-            if (surface_height >= sea_level)
+            if (block_y_surface_height >= sea_level)
+            {
                 // above sea level so make it grass
-                chunk.blocks[x][surface_height][z] = BLOCK_ID_GRASS;
+                // surface_height may be in a different vertical chunk
+                // ensure it is in this chunk
+                if (block_y_min <= block_y_surface_height && block_y_surface_height < block_y_max)
+                    chunk.blocks[x][block_y_surface_height % CHUNK_SIZE][z] = BLOCK_ID_GRASS;
+            }
             else
+            {
                 // underwater so make the surface sand
-                chunk.blocks[x][surface_height][z] = BLOCK_ID_SAND;
+                // surface_height may be in a different vertical chunk
+                // ensure it is in this chunk
+                if (block_y_min <= block_y_surface_height && block_y_surface_height < block_y_max)
+                    chunk.blocks[x][block_y_surface_height % CHUNK_SIZE][z] = BLOCK_ID_SAND;
+            }
             // place dirt below
             let num_dirt = 3;
             for (let d = 1; d <= num_dirt; ++d)
             {
                 // ensure in bounds
-                if (surface_height-d < 0)
+                if (block_y_surface_height-d < 0)
                     break;
                 // place dirt
-                chunk.blocks[x][surface_height-d][z] = BLOCK_ID_DIRT;
+                // surface_height may be in a different vertical chunk
+                // ensure it is in this chunk
+                if (block_y_min <= (block_y_surface_height-d) && (block_y_surface_height-d) < block_y_max)
+                    chunk.blocks[x][(block_y_surface_height-d) % CHUNK_SIZE][z] = BLOCK_ID_DIRT;
             }
             // place stone below
-            let y = surface_height-num_dirt-1;
-            while (y >= 0)
+            let block_y = block_y_surface_height-num_dirt-1;
+            while (block_y >= 0)
             {
                 // place stone
-                chunk.blocks[x][y][z] = BLOCK_ID_STONE;
+                // surface_height may be in a different vertical chunk
+                // ensure it is in this chunk
+                if (block_y_min <= block_y && block_y < block_y_max)
+                    chunk.blocks[x][block_y % CHUNK_SIZE][z] = BLOCK_ID_STONE;
                 // advance to next height
-                --y;
+                --block_y;
             }
             // place water on top if below sea level
-            y = surface_height+1;
-            while (y <= sea_level)
+            block_y = block_y_surface_height+1;
+            while (block_y <= sea_level)
             {
-                chunk.blocks[x][y][z] = BLOCK_ID_WATER;
-                ++y;
+                // place water
+                // surface_height may be in a different vertical chunk
+                // ensure it is in this chunk
+                if (block_y_min <= block_y && block_y < block_y_max)
+                    chunk.blocks[x][block_y % CHUNK_SIZE][z] = BLOCK_ID_WATER;
+                ++block_y;
             }
         }
     }

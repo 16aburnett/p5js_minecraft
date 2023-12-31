@@ -4,6 +4,8 @@
 //========================================================================
 // Globals
 
+const BACK_FACE_CULLING = true;
+
 const BLOCK_WIDTH = 16;
 
 // Block IDs that represent the different kinds of blocks
@@ -167,8 +169,9 @@ function block_setup ()
 // draws a box face by face and omits faces that cannot be seen
 function draw_block (x, y, z, chunk)
 {
+    let this_block_type = chunk.blocks[x][y][z];
     // ignore if it is an airblock
-    if (chunk.blocks[x][y][z] == BLOCK_ID_AIR)
+    if (this_block_type == BLOCK_ID_AIR)
         return;
 
     push ();
@@ -184,7 +187,7 @@ function draw_block (x, y, z, chunk)
     {
         stroke (0);
         // highlight blue if water
-        if (chunk.blocks[x][y][z] == BLOCK_ID_WATER)
+        if (this_block_type == BLOCK_ID_WATER)
             stroke (0, 0, 255);
         strokeWeight (1);
     }
@@ -194,20 +197,21 @@ function draw_block (x, y, z, chunk)
 
     // front face
     // only draw if the next block is transparent and the camera is not behind the plane
-    let is_camera_infront_of_plane = player.camera.eyeZ >= world_z;
-    let is_this_block_water = chunk.blocks[x][y][z] == BLOCK_ID_WATER;
-    let is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.zi+1}`);
+    let is_camera_infront_of_plane = true;
+    if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeZ >= world_z;
+    let is_this_block_water = this_block_type == BLOCK_ID_WATER;
+    let is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi},${chunk.zi+1}`);
     let is_next_block_in_this_chunk = 0 <= z+1 && z+1 < CHUNK_SIZE;
     let is_next_block_air = 
         (is_next_block_in_this_chunk && chunk.blocks[x][y][z+1] == BLOCK_ID_AIR) || 
         (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
         /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_AIR);
+        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_AIR);
     let is_next_block_water = 
         // ensure current block is not water
         !is_this_block_water &&
         ((is_next_block_in_this_chunk && chunk.blocks[x][y][z+1] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_WATER));
+        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_WATER));
     let is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
@@ -219,61 +223,28 @@ function draw_block (x, y, z, chunk)
         // and since this is the front face (and z axis increases towards the front)
         // we have to move the face forward
         translate (BLOCK_WIDTH/2, -BLOCK_WIDTH/2, BLOCK_WIDTH);
-        // draw textured face via texture atlas + manual vertex shape
-        if (current_draw_style == DRAW_STYLE_TEXTURED)
-        {
-            let texture_id_x = map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_atlas_data[TEXTURE_SIDE][0];
-            let texture_id_y = map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_atlas_data[TEXTURE_SIDE][1];
-            texture (texture_atlas);
-            beginShape ();
-            vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
-            vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
-            vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
-            vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
-            endShape ();
-            // plane (BLOCK_WIDTH, BLOCK_WIDTH);
-            
-        }
-        // or textured plane
-        // textured plane seems to be faster than a textured custom vertex shape
-        // this also means no texture atlas
-        if (current_draw_style == DRAW_STYLE_TEXTURED_PLANE)
-        {
-            texture (map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_img_data[TEXTURE_SIDE]);
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-            
-        }
-        // or draw filled plane
-        if (current_draw_style == DRAW_STYLE_FILL || current_draw_style == DRAW_STYLE_FILL_WIREFRAME)
-        {
-            fill (map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).fill_color);
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        }
-        // or draw wireframe plane
-        if (current_draw_style == DRAW_STYLE_WIREFRAME)
-        {
-            noFill ();
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        }
+        // draw the face
+        draw_face (this_block_type, TEXTURE_SIDE);
         pop ();
     }
 
     // back face
     // only draw if the next block is transparent and the camera is not behind the plane
-    is_camera_infront_of_plane = player.camera.eyeZ <= world_z;
-    is_this_block_water = chunk.blocks[x][y][z] == BLOCK_ID_WATER;
-    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.zi-1}`);
+    is_camera_infront_of_plane = true;
+    if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeZ <= world_z;
+    is_this_block_water = this_block_type == BLOCK_ID_WATER;
+    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi},${chunk.zi-1}`);
     is_next_block_in_this_chunk = 0 <= z-1 && z-1 < CHUNK_SIZE;
     is_next_block_air = 
         (is_next_block_in_this_chunk && chunk.blocks[x][y][z-1] == BLOCK_ID_AIR) || 
         (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
         /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_AIR);
+        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_AIR);
     is_next_block_water = 
         // ensure current block is not water
         !is_this_block_water &&
         ((is_next_block_in_this_chunk && chunk.blocks[x][y][z-1] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_WATER));
+        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_WATER));
     is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
@@ -286,59 +257,28 @@ function draw_block (x, y, z, chunk)
         // rotate 180 deg so the normal is facing back
         // unsure if this is needed or correct
         rotateY (PI);
-        // draw textured face via texture atlas + manual vertex shape
-        if (current_draw_style == DRAW_STYLE_TEXTURED)
-        {
-            let texture_id_x = map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_atlas_data[TEXTURE_SIDE][0];
-            let texture_id_y = map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_atlas_data[TEXTURE_SIDE][1];
-            texture (texture_atlas);
-            beginShape ();
-            vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
-            vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
-            vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
-            vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
-            endShape ();
-        }
-        // or textured plane
-        // textured plane seems to be faster than a textured custom vertex shape
-        // this also means no texture atlas
-        if (current_draw_style == DRAW_STYLE_TEXTURED_PLANE)
-        {
-            texture (map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_img_data[TEXTURE_SIDE]);
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-            
-        }
-        // or draw filled plane
-        if (current_draw_style == DRAW_STYLE_FILL || current_draw_style == DRAW_STYLE_FILL_WIREFRAME)
-        {
-            fill (map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).fill_color);
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        }
-        // or draw wireframe plane
-        if (current_draw_style == DRAW_STYLE_WIREFRAME)
-        {
-            noFill ();
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        }
+        // draw the face
+        draw_face (this_block_type, TEXTURE_SIDE);
         pop ();
     }
 
     // left face
     // only draw if the next block is transparent and the camera is not behind the plane
-    is_camera_infront_of_plane = player.camera.eyeX <= world_x;
-    is_this_block_water = chunk.blocks[x][y][z] == BLOCK_ID_WATER;
-    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi-1},${chunk.zi}`);
+    is_camera_infront_of_plane = true;
+    if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeX <= world_x;
+    is_this_block_water = this_block_type == BLOCK_ID_WATER;
+    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi-1},${chunk.yi},${chunk.zi}`);
     is_next_block_in_this_chunk = 0 <= x-1 && x-1 < CHUNK_SIZE;
     is_next_block_air = 
         (is_next_block_in_this_chunk && chunk.blocks[x-1][y][z] == BLOCK_ID_AIR) || 
         (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
         /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi-1},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_AIR);
+        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi-1},${chunk.yi},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_AIR);
     is_next_block_water = 
         // ensure current block is not water
         !is_this_block_water &&
         ((is_next_block_in_this_chunk && chunk.blocks[x-1][y][z] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi-1},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_WATER));
+        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi-1},${chunk.yi},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_WATER));
     is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
@@ -349,59 +289,28 @@ function draw_block (x, y, z, chunk)
         translate (0, -BLOCK_WIDTH/2, BLOCK_WIDTH/2);
         // and then rotate to be perpendicular to the front and back faces
         rotateY (PI/2);
-        // draw textured face via texture atlas + manual vertex shape
-        if (current_draw_style == DRAW_STYLE_TEXTURED)
-        {
-            let texture_id_x = map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_atlas_data[TEXTURE_SIDE][0];
-            let texture_id_y = map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_atlas_data[TEXTURE_SIDE][1];
-            texture (texture_atlas);
-            beginShape ();
-            vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
-            vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
-            vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
-            vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
-            endShape ();
-        }
-        // or textured plane
-        // textured plane seems to be faster than a textured custom vertex shape
-        // this also means no texture atlas
-        if (current_draw_style == DRAW_STYLE_TEXTURED_PLANE)
-        {
-            texture (map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_img_data[TEXTURE_SIDE]);
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-            
-        }
-        // or draw filled plane
-        if (current_draw_style == DRAW_STYLE_FILL || current_draw_style == DRAW_STYLE_FILL_WIREFRAME)
-        {
-            fill (map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).fill_color);
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        }
-        // or draw wireframe plane
-        if (current_draw_style == DRAW_STYLE_WIREFRAME)
-        {
-            noFill ();
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        }
+        // draw the face
+        draw_face (this_block_type, TEXTURE_SIDE);
         pop ();
     }
 
     // right face
     // only draw if the next block is transparent and the camera is not behind the plane
-    is_camera_infront_of_plane = player.camera.eyeX >= world_x;
-    is_this_block_water = chunk.blocks[x][y][z] == BLOCK_ID_WATER;
-    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi+1},${chunk.zi}`);
+    is_camera_infront_of_plane = true;
+    if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeX >= world_x;
+    is_this_block_water = this_block_type == BLOCK_ID_WATER;
+    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi+1},${chunk.yi},${chunk.zi}`);
     is_next_block_in_this_chunk = 0 <= x+1 && x+1 < CHUNK_SIZE;
     is_next_block_air = 
         (is_next_block_in_this_chunk && chunk.blocks[x+1][y][z] == BLOCK_ID_AIR) || 
         (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
         /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi+1},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_AIR);
+        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi+1},${chunk.yi},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_AIR);
     is_next_block_water = 
         // ensure current block is not water
         !is_this_block_water &&
         ((is_next_block_in_this_chunk && chunk.blocks[x+1][y][z] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi+1},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_WATER));
+        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi+1},${chunk.yi},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_WATER));
     is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
@@ -413,50 +322,30 @@ function draw_block (x, y, z, chunk)
         translate (BLOCK_WIDTH, -BLOCK_WIDTH/2, BLOCK_WIDTH/2);
         // and then rotate to be perpendicular to the front and back faces
         rotateY (-PI/2);
-        // draw textured face via texture atlas + manual vertex shape
-        if (current_draw_style == DRAW_STYLE_TEXTURED)
-        {
-            let texture_id_x = map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_atlas_data[TEXTURE_SIDE][0];
-            let texture_id_y = map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_atlas_data[TEXTURE_SIDE][1];
-            texture (texture_atlas);
-            beginShape ();
-            vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
-            vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
-            vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
-            vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
-            endShape ();
-        }
-        // or textured plane
-        // textured plane seems to be faster than a textured custom vertex shape
-        // this also means no texture atlas
-        if (current_draw_style == DRAW_STYLE_TEXTURED_PLANE)
-        {
-            texture (map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_img_data[TEXTURE_SIDE]);
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-            
-        }
-        // or draw filled plane
-        if (current_draw_style == DRAW_STYLE_FILL || current_draw_style == DRAW_STYLE_FILL_WIREFRAME)
-        {
-            fill (map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).fill_color);
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        }
-        // or draw wireframe plane
-        if (current_draw_style == DRAW_STYLE_WIREFRAME)
-        {
-            noFill ();
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        }
+        // draw the face
+        draw_face (this_block_type, TEXTURE_SIDE);
         pop ();
     }
 
     // top face
-    // only draw if no block is immediately in front of face
-    // dont draw if camera is behind plane
-    // is_camera_infront_of_plane = camera.eyeY >= y*BLOCK_WIDTH;
-    // y axis needs to be reversed and negated
-    is_camera_infront_of_plane = player.camera.eyeY <= world_y;
-    if ((y+1 >= WORLD_HEIGHT || chunk.blocks[x][y+1][z] == BLOCK_ID_AIR || (chunk.blocks[x][y+1][z] == BLOCK_ID_WATER && !is_this_block_water)) && is_camera_infront_of_plane)
+    // only draw if the next block is transparent and the camera is not behind the plane
+    is_camera_infront_of_plane = true;
+    if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeY <= world_y;
+    is_this_block_water = this_block_type == BLOCK_ID_WATER;
+    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi+1},${chunk.zi}`);
+    is_next_block_in_this_chunk = 0 <= y+1 && y+1 < CHUNK_SIZE;
+    is_next_block_air = 
+        (is_next_block_in_this_chunk && chunk.blocks[x][y+1][z] == BLOCK_ID_AIR) || 
+        (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
+        /*need to check first block in next chunk*/
+        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi+1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_AIR);
+    is_next_block_water = 
+        // ensure current block is not water
+        !is_this_block_water &&
+        ((is_next_block_in_this_chunk && chunk.blocks[x][y+1][z] == BLOCK_ID_WATER) ||
+        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi+1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_WATER));
+    is_next_block_transparent = is_next_block_air || is_next_block_water;
+    if (is_camera_infront_of_plane && is_next_block_transparent)
     {
         push ();
         // move to plane's position
@@ -465,50 +354,30 @@ function draw_block (x, y, z, chunk)
         translate (BLOCK_WIDTH/2, -BLOCK_WIDTH, BLOCK_WIDTH/2);
         // and then rotate to be perpendicular to the front and back faces
         rotateX (-PI/2);
-        // draw textured face via texture atlas + manual vertex shape
-        if (current_draw_style == DRAW_STYLE_TEXTURED)
-        {
-            let texture_id_x = map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_atlas_data[TEXTURE_TOP][0];
-            let texture_id_y = map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_atlas_data[TEXTURE_TOP][1];
-            texture (texture_atlas);
-            beginShape ();
-            vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
-            vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
-            vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
-            vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
-            endShape ();
-        }
-        // or textured plane
-        // textured plane seems to be faster than a textured custom vertex shape
-        // this also means no texture atlas
-        if (current_draw_style == DRAW_STYLE_TEXTURED_PLANE)
-        {
-            texture (map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_img_data[TEXTURE_TOP]);
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-            
-        }
-        // or draw filled plane
-        if (current_draw_style == DRAW_STYLE_FILL || current_draw_style == DRAW_STYLE_FILL_WIREFRAME)
-        {
-            fill (map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).fill_color);
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        }
-        // or draw wireframe plane
-        if (current_draw_style == DRAW_STYLE_WIREFRAME)
-        {
-            noFill ();
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        }
+        // draw the face
+        draw_face (this_block_type, TEXTURE_TOP);
         pop ();
     }
     
     // bottom face
-    // only draw if no block is immediately in front of face
-    // dont draw if camera is behind plane
-    // is_camera_infront_of_plane = camera.eyeY <= y*BLOCK_WIDTH;
-    // y axis needs to be reversed and negated
-    is_camera_infront_of_plane = player.camera.eyeY >= world_y;
-    if ((y-1 < 0 || chunk.blocks[x][y-1][z] == BLOCK_ID_AIR || (chunk.blocks[x][y-1][z] == BLOCK_ID_WATER && !is_this_block_water)) && is_camera_infront_of_plane)
+    // only draw if the next block is transparent and the camera is not behind the plane
+    is_camera_infront_of_plane = true;
+    if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeY >= world_y;
+    is_this_block_water = this_block_type == BLOCK_ID_WATER;
+    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi-1},${chunk.zi}`);
+    is_next_block_in_this_chunk = 0 <= y-1 && y-1 < CHUNK_SIZE;
+    is_next_block_air = 
+        (is_next_block_in_this_chunk && chunk.blocks[x][y-1][z] == BLOCK_ID_AIR) || 
+        (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
+        /*need to check first block in next chunk*/
+        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi-1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_AIR);
+    is_next_block_water = 
+        // ensure current block is not water
+        !is_this_block_water &&
+        ((is_next_block_in_this_chunk && chunk.blocks[x][y-1][z] == BLOCK_ID_WATER) ||
+        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi-1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_WATER));
+    is_next_block_transparent = is_next_block_air || is_next_block_water;
+    if (is_camera_infront_of_plane && is_next_block_transparent)
     {
         push ();
         // move to plane's position
@@ -517,42 +386,50 @@ function draw_block (x, y, z, chunk)
         translate (BLOCK_WIDTH/2, 0, BLOCK_WIDTH/2);
         // and then rotate to be perpendicular to the front and back faces
         rotateX (PI/2);
-        // draw textured face via texture atlas + manual vertex shape
-        if (current_draw_style == DRAW_STYLE_TEXTURED)
-        {
-            let texture_id_x = map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_atlas_data[TEXTURE_BOTTOM][0];
-            let texture_id_y = map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_atlas_data[TEXTURE_BOTTOM][1];
-            texture (texture_atlas);
-            beginShape ();
-            vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
-            vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
-            vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
-            vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
-            endShape ();
-        }
-        // or textured plane
-        // textured plane seems to be faster than a textured custom vertex shape
-        // this also means no texture atlas
-        if (current_draw_style == DRAW_STYLE_TEXTURED_PLANE)
-        {
-            texture (map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).texture_img_data[TEXTURE_BOTTOM]);
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-            
-        }
-        // or draw filled plane
-        if (current_draw_style == DRAW_STYLE_FILL || current_draw_style == DRAW_STYLE_FILL_WIREFRAME)
-        {
-            fill (map_block_id_to_block_static_data.get (chunk.blocks[x][y][z]).fill_color);
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        }
-        // or draw wireframe plane
-        if (current_draw_style == DRAW_STYLE_WIREFRAME)
-        {
-            noFill ();
-            plane (BLOCK_WIDTH, BLOCK_WIDTH);
-        }
+        // draw the face
+        draw_face (this_block_type, TEXTURE_BOTTOM);
         pop ();
     }
 
     pop ();
+}
+
+//========================================================================
+
+function draw_face (block_type, texture_face)
+{
+    // draw textured face via texture atlas + manual vertex shape
+    if (current_draw_style == DRAW_STYLE_TEXTURED)
+    {
+        let texture_id_x = map_block_id_to_block_static_data.get (block_type).texture_atlas_data[texture_face][0];
+        let texture_id_y = map_block_id_to_block_static_data.get (block_type).texture_atlas_data[texture_face][1];
+        texture (texture_atlas);
+        beginShape ();
+        vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
+        vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
+        vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
+        vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
+        endShape ();
+    }
+    // or textured plane
+    // textured plane seems to be faster than a textured custom vertex shape
+    // this also means no texture atlas
+    if (current_draw_style == DRAW_STYLE_TEXTURED_PLANE)
+    {
+        texture (map_block_id_to_block_static_data.get (block_type).texture_img_data[texture_face]);
+        plane (BLOCK_WIDTH, BLOCK_WIDTH);
+        
+    }
+    // or draw filled plane
+    if (current_draw_style == DRAW_STYLE_FILL || current_draw_style == DRAW_STYLE_FILL_WIREFRAME)
+    {
+        fill (map_block_id_to_block_static_data.get (block_type).fill_color);
+        plane (BLOCK_WIDTH, BLOCK_WIDTH);
+    }
+    // or draw wireframe plane
+    if (current_draw_style == DRAW_STYLE_WIREFRAME)
+    {
+        noFill ();
+        plane (BLOCK_WIDTH, BLOCK_WIDTH);
+    }
 }

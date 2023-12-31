@@ -33,6 +33,9 @@ let is_game_paused = false;
 
 let world;
 
+// used to calculate average fps
+let prev_fps = [];
+
 //========================================================================
 
 function preload ()
@@ -129,7 +132,13 @@ function draw_overlay ()
             textAlign (LEFT);
             fill (255);
             // load data
-            let fps = Math.round (frameRate ());
+            let fps = frameRate ();
+            prev_fps.push (fps);
+            if (prev_fps.length > 100)
+                prev_fps = prev_fps.slice (1, prev_fps.length);
+            let fps_ave = prev_fps.reduce ((a,b)=>{return a+b}) / prev_fps.length;
+            let frame_time = 1000 / fps;
+            let frame_time_ave = 1000 / fps_ave;
             let x = Math.floor (player.position.x * 100) / 100;
             let y = Math.floor (player.position.y * 100) / 100;
             let z = Math.floor (player.position.z * 100) / 100;
@@ -143,20 +152,19 @@ function draw_overlay ()
             block_xi = Math.floor (block_xi * 100) / 100;
             block_yi = Math.floor (block_yi * 100) / 100;
             block_zi = Math.floor (block_zi * 100) / 100;
-            let chunk_x = Math.floor ( player.camera.eyeX / BLOCK_WIDTH / CHUNK_SIZE);
-            let chunk_y = 0;
-            let chunk_z = Math.floor ( player.camera.eyeZ / BLOCK_WIDTH / CHUNK_SIZE);
+            let [chunk_xi, chunk_yi, chunk_zi] = convert_world_to_chunk_index (player.position.x, player.position.y, player.position.z);
             let [chunk_block_xi, chunk_block_yi, chunk_block_zi] = convert_world_to_chunk_block_index (player.position.x, player.position.y, player.position.z);
             let block_type = world.get_block_type (block_xi, block_yi, block_zi);
             let block_type_str = BLOCK_ID_STR_MAP.get (block_type);
             // draw debug text
-            text (`FPS: ${fps}\n` +
+            text (`FPS: ${fps.toFixed (0)}, Ave: ${fps_ave.toFixed (0)}\n` +
+                  `frame time (ms): ${frame_time.toFixed (2)}, Ave: ${frame_time_ave.toFixed (2)}\n` +
                   `tilt:       ${tilt.toFixed (2)} (RAD), ${degrees (tilt).toFixed (2)} (DEG)\n` +
                   `pan:        ${pan.toFixed (2)} (RAD), ${degrees (pan).toFixed (2)} (DEG)\n` +
                   `XYZ:        ${x}, ${y}, ${z}\n` +
                   `block:      ${block_x}, ${block_y}, ${block_z}\n` +
                   `block_idx:  ${block_xi}, ${block_yi}, ${block_zi}\n` +
-                  `chunk_idx:  ${chunk_x}, ${chunk_y}, ${chunk_z}\n` +
+                  `chunk_idx:  ${chunk_xi}, ${chunk_yi}, ${chunk_zi}\n` +
                   `chunk_block_idx: ${chunk_block_xi}, ${chunk_block_yi}, ${chunk_block_zi}\n` +
                   `block id:   ${block_type_str}\n` +
                   `draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}`,

@@ -6,10 +6,10 @@
 // Globals
 
 // this should be 256
-const WORLD_HEIGHT = 50;
+const WORLD_HEIGHT = 32;
 // this should be 65
-const SEA_LEVEL = 20
-// a chunk is a CHUNK_SIZE*CHUNK_SIZE*WORLD_HEIGHT subset of the full map
+const SEA_LEVEL = 16
+// a chunk is a CHUNK_SIZE^3 subset of the full map
 const CHUNK_SIZE = 16;
 
 //========================================================================
@@ -19,15 +19,18 @@ class World
     constructor ()
     {
         // quick access map of the currently loaded chunks
-        // this enables quick lookup using the chunk_xi and chunk_zi indices
-        // currently chunks only divide up the x and z axes so y is not needed
+        // this enables quick lookup using the chunk_xi, chunk_yi, and chunk_zi indices
         this.chunk_map = new Map ();
 
         // initialize the chunk map
-        this.chunk_map.set ("0,0", new Chunk (0, 0, 0));
-        this.chunk_map.set ("0,1", new Chunk (0, 0, 1));
-        this.chunk_map.set ("1,0", new Chunk (1, 0, 0));
-        this.chunk_map.set ("1,1", new Chunk (1, 0, 1));
+        this.chunk_map.set ("0,0,0", new Chunk (0, 0, 0));
+        this.chunk_map.set ("0,0,1", new Chunk (0, 0, 1));
+        this.chunk_map.set ("1,0,0", new Chunk (1, 0, 0));
+        this.chunk_map.set ("1,0,1", new Chunk (1, 0, 1));
+        this.chunk_map.set ("0,1,0", new Chunk (0, 1, 0));
+        this.chunk_map.set ("0,1,1", new Chunk (0, 1, 1));
+        this.chunk_map.set ("1,1,0", new Chunk (1, 1, 0));
+        this.chunk_map.set ("1,1,1", new Chunk (1, 1, 1));
     }
     
     // returns the block type at the given block indices.
@@ -38,16 +41,12 @@ class World
         // TODO: this might be able to accept coords if we
         // floor them to indices
 
-        // ensure y is valid
-        if (block_yi >= WORLD_HEIGHT || block_yi < 0)
-            return null;
-
         let chunk_xi = Math.floor (block_xi / CHUNK_SIZE);
-        // let chunk_yi = Math.floor (block_yi / WORLD_HEIGHT);
+        let chunk_yi = Math.floor (block_yi / CHUNK_SIZE);
         let chunk_zi = Math.floor (block_zi / CHUNK_SIZE);
 
         // ensure chunk is loaded
-        if (!this.chunk_map.has (`${chunk_xi},${chunk_zi}`))
+        if (!this.chunk_map.has (`${chunk_xi},${chunk_yi},${chunk_zi}`))
             return null;
 
         // convert block idx to chunk block idx
@@ -55,7 +54,7 @@ class World
         let [chunk_block_xi, chunk_block_yi, chunk_block_zi] = convert_block_index_to_chunk_block_index (block_xi, block_yi, block_zi);
         
         // return the block
-        return this.chunk_map.get (`${chunk_xi},${chunk_zi}`).blocks[chunk_block_xi][block_yi][chunk_block_zi];
+        return this.chunk_map.get (`${chunk_xi},${chunk_yi},${chunk_zi}`).blocks[chunk_block_xi][chunk_block_yi][chunk_block_zi];
     }
 
     update ()
@@ -113,6 +112,17 @@ function convert_world_to_chunk_block_index (world_x, world_y, world_z)
 {
     let [block_xi, block_yi, block_zi] = convert_world_to_block_index (world_x, world_y, world_z);
     return convert_block_index_to_chunk_block_index (block_xi, block_yi, block_zi);
+}
+
+//========================================================================
+
+// converts the given world coordinates to the containing chunk index
+function convert_world_to_chunk_index (world_x, world_y, world_z)
+{
+    let chunk_xi = Math.floor ( world_x / (CHUNK_SIZE * BLOCK_WIDTH));
+    let chunk_yi = Math.floor (-world_y / (CHUNK_SIZE * BLOCK_WIDTH));
+    let chunk_zi = Math.floor ( world_z / (CHUNK_SIZE * BLOCK_WIDTH));
+    return [chunk_xi, chunk_yi, chunk_zi];
 }
 
 //========================================================================
