@@ -41,6 +41,10 @@ class Chunk
                     // set new depth/z-value to air (ie no block)
                     this.blocks[x][y].push (BLOCK_ID_AIR);
                 }
+                // add position for keeping track of non-zero z blocks
+                // in for this x,y position
+                // 0 initially but we will update it
+                this.blocks[x][y].push (0);
             }
         }
 
@@ -58,19 +62,33 @@ class Chunk
             generate_terrain_for_chunk (this);
         }
 
+        // preprocess chunk
+        // count non-zeros
+        // for culling rows of air
+        for (let x = 0; x < CHUNK_SIZE; ++x)
+        {
+            for (let y = 0; y < CHUNK_SIZE; ++y)
+            {
+                for (let z = 0; z < CHUNK_SIZE; ++z)
+                {
+                    if (this.blocks[x][y][z] != BLOCK_ID_AIR)
+                        // not an air block so increment non-zero counter
+                        ++this.blocks[x][y][CHUNK_SIZE];
+                }
+            }
+        }
+
     }
 
     // draws all solid blocks (non-transparent) of this chunk 
     draw_solid_blocks ()
     {
-        graphics.push ();
         // move to chunk's position
         graphics.translate (this.x, this.y, this.z);
 
         // draw outline of chunk
         if (is_chunk_debug_border_shown)
         {
-            graphics.push ();
             // boxes are draw from the center so we need to align to the chunk
             graphics.translate (CHUNK_SIZE * BLOCK_WIDTH / 2, -CHUNK_SIZE * BLOCK_WIDTH / 2, CHUNK_SIZE * BLOCK_WIDTH / 2);
             // highlight if camera is in this chunk
@@ -88,7 +106,9 @@ class Chunk
             }
             graphics.noFill ();
             graphics.box (CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * BLOCK_WIDTH);
-            graphics.pop ();
+
+            // undo translate
+            graphics.translate (-(CHUNK_SIZE * BLOCK_WIDTH / 2), -(-CHUNK_SIZE * BLOCK_WIDTH / 2), -(CHUNK_SIZE * BLOCK_WIDTH / 2));
         }
 
         // 1. first, draw non-transparent blocks
@@ -98,25 +118,31 @@ class Chunk
             // loop over y direction drawing blocks bottom to top
             for (let j = 0; j < CHUNK_SIZE; ++j)
             {
+                // ensure z direction has blocks for this x,y
+                // we dont have to waste time iterating over depth
+                // if there isnt any blocks
+                if (this.blocks[i][j][CHUNK_SIZE] == 0)
+                    continue;
                 // loop over z direction drawing blocks back to forward
                 for (let k = 0; k < CHUNK_SIZE; ++k)
                 {
                     // ignore if transparent block
                     // we will do another pass for transparent blocks
+                    let block_type = this.blocks[i][j][k];
                     let is_transparent_block = this.blocks[i][j][k] == BLOCK_ID_WATER;
                     if (!is_transparent_block)
-                        draw_block (i, j, k, this);
+                        draw_block (i, j, k, this, block_type);
                 }
             }
         }
 
-        graphics.pop ();
+        // undo translate to chunk's position
+        graphics.translate (-this.x, -this.y, -this.z);
     }
 
     // draw all transparent blocks of this chunk
     draw_transparent_blocks ()
     {
-        graphics.push ();
         // move to chunk's position
         graphics.translate (this.x, this.y, this.z);
 
@@ -127,17 +153,25 @@ class Chunk
             // loop over y direction drawing blocks bottom to top
             for (let j = 0; j < CHUNK_SIZE; ++j)
             {
+                // ensure z direction has blocks for this x,y
+                // we dont have to waste time iterating over depth
+                // if there isnt any blocks
+                if (this.blocks[i][j][CHUNK_SIZE] == 0)
+                    continue;
                 // loop over z direction drawing blocks back to forward
                 for (let k = 0; k < CHUNK_SIZE; ++k)
                 {
                     // ignore non-transparent blocks
-                    let is_transparent_block = this.blocks[i][j][k] == BLOCK_ID_WATER;
+                    let block_type = this.blocks[i][j][k];
+                    let is_transparent_block = block_type == BLOCK_ID_WATER;
                     if (is_transparent_block)
-                        draw_block (i, j, k, this);
+                        draw_block (i, j, k, this, block_type);
                 }
             }
         }
-        graphics.pop ();
+
+        // undo translate to chunk's position
+        graphics.translate (-this.x, -this.y, -this.z);
     }
 }
 
