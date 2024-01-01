@@ -9,6 +9,7 @@ const BACK_FACE_CULLING = true;
 const BLOCK_WIDTH = 16;
 
 // Block IDs that represent the different kinds of blocks
+const BLOCK_ID_NONE       = -1;
 const BLOCK_ID_AIR        = 0;
 const BLOCK_ID_GRASS      = 1;
 const BLOCK_ID_DIRT       = 2;
@@ -16,6 +17,7 @@ const BLOCK_ID_STONE      = 3;
 const BLOCK_ID_WATER      = 4;
 const BLOCK_ID_SAND       = 5;
 const BLOCK_ID_STR_MAP = new Map ();
+BLOCK_ID_STR_MAP.set (BLOCK_ID_NONE , "BLOCK_ID_NONE");
 BLOCK_ID_STR_MAP.set (BLOCK_ID_AIR  , "BLOCK_ID_AIR");
 BLOCK_ID_STR_MAP.set (BLOCK_ID_GRASS, "BLOCK_ID_GRASS");
 BLOCK_ID_STR_MAP.set (BLOCK_ID_DIRT , "BLOCK_ID_DIRT");
@@ -174,26 +176,28 @@ function draw_block (x, y, z, chunk)
     if (this_block_type == BLOCK_ID_AIR)
         return;
 
-    push ();
+    graphics.push ();
     // move to block's center position
-    translate (x*BLOCK_WIDTH, -y*BLOCK_WIDTH, z*BLOCK_WIDTH);
+    graphics.translate (x*BLOCK_WIDTH, -y*BLOCK_WIDTH, z*BLOCK_WIDTH);
 
     let world_x = (chunk.xi * CHUNK_SIZE * BLOCK_WIDTH) + x * BLOCK_WIDTH;
-    let world_y = -y * BLOCK_WIDTH; // y axis is reversed
+    let world_y = -((chunk.yi * CHUNK_SIZE * BLOCK_WIDTH) + y * BLOCK_WIDTH); // y axis is reversed
     let world_z = (chunk.zi * CHUNK_SIZE * BLOCK_WIDTH) + z * BLOCK_WIDTH;
 
     // enable wireframe
     if (current_draw_style == DRAW_STYLE_WIREFRAME || current_draw_style == DRAW_STYLE_FILL_WIREFRAME)
     {
-        stroke (0);
+        graphics.stroke (0);
         // highlight blue if water
         if (this_block_type == BLOCK_ID_WATER)
-            stroke (0, 0, 255);
-        strokeWeight (1);
+            graphics.stroke (0, 0, 255);
+        graphics.strokeWeight (1);
     }
     // no wireframe
     else
-        noStroke ();
+    {
+        graphics.noStroke ();
+    }
 
     // front face
     // only draw if the next block is transparent and the camera is not behind the plane
@@ -215,17 +219,17 @@ function draw_block (x, y, z, chunk)
     let is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
-        push ();
+        graphics.push ();
         // move to plane's position
         // planes are draw from the center
         // so shift right and up to make the origin at bottom left
         // (keep in mind that y axis is reversed so we need to negate)
         // and since this is the front face (and z axis increases towards the front)
         // we have to move the face forward
-        translate (BLOCK_WIDTH/2, -BLOCK_WIDTH/2, BLOCK_WIDTH);
+        graphics.translate (BLOCK_WIDTH/2, -BLOCK_WIDTH/2, BLOCK_WIDTH);
         // draw the face
         draw_face (this_block_type, TEXTURE_SIDE);
-        pop ();
+        graphics.pop ();
     }
 
     // back face
@@ -248,18 +252,18 @@ function draw_block (x, y, z, chunk)
     is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
-        push ();
+        graphics.push ();
         // move to plane's position
         // planes are draw from the center
         // so shift right and up to make the origin at bottom left
         // (keep in mind that y axis is reversed so we need to negate)
-        translate (BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0);
+        graphics.translate (BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0);
         // rotate 180 deg so the normal is facing back
         // unsure if this is needed or correct
-        rotateY (PI);
+        graphics.rotateY (PI);
         // draw the face
         draw_face (this_block_type, TEXTURE_SIDE);
-        pop ();
+        graphics.pop ();
     }
 
     // left face
@@ -282,16 +286,16 @@ function draw_block (x, y, z, chunk)
     is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
-        push ();
+        graphics.push ();
         // move to plane's position
         // plane's are draw from the center
         // so we need to correct for that
-        translate (0, -BLOCK_WIDTH/2, BLOCK_WIDTH/2);
+        graphics.translate (0, -BLOCK_WIDTH/2, BLOCK_WIDTH/2);
         // and then rotate to be perpendicular to the front and back faces
-        rotateY (PI/2);
+        graphics.rotateY (PI/2);
         // draw the face
         draw_face (this_block_type, TEXTURE_SIDE);
-        pop ();
+        graphics.pop ();
     }
 
     // right face
@@ -314,17 +318,17 @@ function draw_block (x, y, z, chunk)
     is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
-        push ();
+        graphics.push ();
         // move to plane's position
         // plane's are draw from the center
         // so we need to correct for that
         // also we need to move it to the right side of the block
-        translate (BLOCK_WIDTH, -BLOCK_WIDTH/2, BLOCK_WIDTH/2);
+        graphics.translate (BLOCK_WIDTH, -BLOCK_WIDTH/2, BLOCK_WIDTH/2);
         // and then rotate to be perpendicular to the front and back faces
-        rotateY (-PI/2);
+        graphics.rotateY (-PI/2);
         // draw the face
         draw_face (this_block_type, TEXTURE_SIDE);
-        pop ();
+        graphics.pop ();
     }
 
     // top face
@@ -347,16 +351,16 @@ function draw_block (x, y, z, chunk)
     is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
-        push ();
+        graphics.push ();
         // move to plane's position
         // plane's are draw from the center
         // so we need to correct for that
-        translate (BLOCK_WIDTH/2, -BLOCK_WIDTH, BLOCK_WIDTH/2);
+        graphics.translate (BLOCK_WIDTH/2, -BLOCK_WIDTH, BLOCK_WIDTH/2);
         // and then rotate to be perpendicular to the front and back faces
-        rotateX (-PI/2);
+        graphics.rotateX (-PI/2);
         // draw the face
         draw_face (this_block_type, TEXTURE_TOP);
-        pop ();
+        graphics.pop ();
     }
     
     // bottom face
@@ -379,19 +383,19 @@ function draw_block (x, y, z, chunk)
     is_next_block_transparent = is_next_block_air || is_next_block_water;
     if (is_camera_infront_of_plane && is_next_block_transparent)
     {
-        push ();
+        graphics.push ();
         // move to plane's position
         // plane's are draw from the center
         // so we need to correct for that
-        translate (BLOCK_WIDTH/2, 0, BLOCK_WIDTH/2);
+        graphics.translate (BLOCK_WIDTH/2, 0, BLOCK_WIDTH/2);
         // and then rotate to be perpendicular to the front and back faces
-        rotateX (PI/2);
+        graphics.rotateX (PI/2);
         // draw the face
         draw_face (this_block_type, TEXTURE_BOTTOM);
-        pop ();
+        graphics.pop ();
     }
 
-    pop ();
+    graphics.pop ();
 }
 
 //========================================================================
@@ -403,33 +407,33 @@ function draw_face (block_type, texture_face)
     {
         let texture_id_x = map_block_id_to_block_static_data.get (block_type).texture_atlas_data[texture_face][0];
         let texture_id_y = map_block_id_to_block_static_data.get (block_type).texture_atlas_data[texture_face][1];
-        texture (texture_atlas);
-        beginShape ();
-        vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
-        vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
-        vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
-        vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
-        endShape ();
+        graphics.texture (texture_atlas);
+        graphics.beginShape ();
+        graphics.vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
+        graphics.vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
+        graphics.vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
+        graphics.vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
+        graphics.endShape ();
     }
     // or textured plane
     // textured plane seems to be faster than a textured custom vertex shape
     // this also means no texture atlas
     if (current_draw_style == DRAW_STYLE_TEXTURED_PLANE)
     {
-        texture (map_block_id_to_block_static_data.get (block_type).texture_img_data[texture_face]);
-        plane (BLOCK_WIDTH, BLOCK_WIDTH);
+        graphics.texture (map_block_id_to_block_static_data.get (block_type).texture_img_data[texture_face]);
+        graphics.plane (BLOCK_WIDTH, BLOCK_WIDTH);
         
     }
     // or draw filled plane
     if (current_draw_style == DRAW_STYLE_FILL || current_draw_style == DRAW_STYLE_FILL_WIREFRAME)
     {
-        fill (map_block_id_to_block_static_data.get (block_type).fill_color);
-        plane (BLOCK_WIDTH, BLOCK_WIDTH);
+        graphics.fill (map_block_id_to_block_static_data.get (block_type).fill_color);
+        graphics.plane (BLOCK_WIDTH, BLOCK_WIDTH);
     }
     // or draw wireframe plane
     if (current_draw_style == DRAW_STYLE_WIREFRAME)
     {
-        noFill ();
-        plane (BLOCK_WIDTH, BLOCK_WIDTH);
+        graphics.noFill ();
+        graphics.plane (BLOCK_WIDTH, BLOCK_WIDTH);
     }
 }

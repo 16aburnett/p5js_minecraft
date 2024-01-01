@@ -63,32 +63,32 @@ class Chunk
     // draws all solid blocks (non-transparent) of this chunk 
     draw_solid_blocks ()
     {
-        push ();
+        graphics.push ();
         // move to chunk's position
-        translate (this.x, this.y, this.z);
+        graphics.translate (this.x, this.y, this.z);
 
         // draw outline of chunk
         if (is_chunk_debug_border_shown)
         {
-            push ();
+            graphics.push ();
             // boxes are draw from the center so we need to align to the chunk
-            translate (CHUNK_SIZE * BLOCK_WIDTH / 2, -CHUNK_SIZE * BLOCK_WIDTH / 2, CHUNK_SIZE * BLOCK_WIDTH / 2);
+            graphics.translate (CHUNK_SIZE * BLOCK_WIDTH / 2, -CHUNK_SIZE * BLOCK_WIDTH / 2, CHUNK_SIZE * BLOCK_WIDTH / 2);
             // highlight if camera is in this chunk
             if (this.x <= player.camera.eyeX && player.camera.eyeX <= this.x + CHUNK_SIZE * BLOCK_WIDTH &&
                 this.y >= player.camera.eyeY && player.camera.eyeY >= this.y - CHUNK_SIZE * BLOCK_WIDTH &&
                 this.z <= player.camera.eyeZ && player.camera.eyeZ <= this.z + CHUNK_SIZE * BLOCK_WIDTH)
             {
-                stroke (255, 255, 0);
-                strokeWeight (2);
+                graphics.stroke (255, 255, 0);
+                graphics.strokeWeight (2);
             }
             else
             {
-                stroke (255, 0, 255);
-                strokeWeight (1);
+                graphics.stroke (255, 0, 255);
+                graphics.strokeWeight (1);
             }
-            noFill ();
-            box (CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * BLOCK_WIDTH);
-            pop ();
+            graphics.noFill ();
+            graphics.box (CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * BLOCK_WIDTH);
+            graphics.pop ();
         }
 
         // 1. first, draw non-transparent blocks
@@ -110,15 +110,15 @@ class Chunk
             }
         }
 
-        pop ();
+        graphics.pop ();
     }
 
     // draw all transparent blocks of this chunk
     draw_transparent_blocks ()
     {
-        push ();
+        graphics.push ();
         // move to chunk's position
-        translate (this.x, this.y, this.z);
+        graphics.translate (this.x, this.y, this.z);
 
         // 2. next, draw transparent blocks
         // loop over x direction drawing blocks left to right
@@ -137,8 +137,7 @@ class Chunk
                 }
             }
         }
-
-        pop ();
+        graphics.pop ();
     }
 }
 

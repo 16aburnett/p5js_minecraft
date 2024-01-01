@@ -5,7 +5,6 @@
 
 let player;
 
-let overlay_graphics;
 let overlay_font;
 
 // Key Press KeyCodes
@@ -36,6 +35,9 @@ let world;
 // used to calculate average fps
 let prev_fps = [];
 
+// the main 3D graphics
+let graphics;
+
 //========================================================================
 
 function preload ()
@@ -57,21 +59,21 @@ function preload ()
 
 function setup ()
 {
-    createCanvas (windowWidth, windowHeight, WEBGL);
+    // the main canvas handles any 2D elements like the HUD or Menus
+    createCanvas (windowWidth, windowHeight);
+    // graphics handles the 3d graphics of the game
+    graphics = createGraphics (windowWidth, windowHeight, WEBGL);
 
     angleMode (RADIANS);
 
     // setup player
-    player = new Player (createCamera ());
-    perspective (radians (FOV_DEGREES), width / height, 0.1, 8000);
+    player = new Player ();
+    graphics.perspective (radians (FOV_DEGREES), width / height, 0.1, 8000);
     // move player to the first chunk
     player.set_position (0, -WORLD_HEIGHT*BLOCK_WIDTH, 0);
 
     // Initialize the world
     world = new World ();
-
-    // Overlay
-    overlay_graphics = createGraphics (100, 100);
 
     // setup block textures and other static block info
     block_setup ();
@@ -85,7 +87,14 @@ function setup ()
 
 function draw ()
 {
-    background (150, 200, 255);
+    clear ();
+    graphics.clear ();
+    // this resets certain values modified by transforms and lights
+    // without this, the performance seems to significantly diminish over time
+    // and causes lighting to be much more intense
+    graphics.reset ();
+    // give the 3D world a nice sky-colored background
+    graphics.background (150, 200, 255);
 
     process_key_input ();
 
@@ -93,11 +102,14 @@ function draw ()
     player.draw ();
     
     // setup light from Sun
-    ambientLight (128, 128, 128);
-    directionalLight (128, 128, 128, 0, 1, -1);
+    graphics.ambientLight (128, 128, 128);
+    graphics.directionalLight (128, 128, 128, 0, 1, -1);
     
     // draw world
     world.draw ();
+
+    // draw the 3D graphics as an image to the main canvas
+    image (graphics, 0, 0, windowWidth, windowHeight);
 
     // draw overlay elements
     draw_overlay ();
@@ -107,93 +119,71 @@ function draw ()
 
 function draw_overlay ()
 {
-
     push ();
+    // style
+    textSize (24);
+    textFont (overlay_font);
+    // translate(-150, -150, 0);
+    textAlign (LEFT, TOP);
+    fill (255);
+    // load data
+    let fps = frameRate ();
+    prev_fps.push (fps);
+    if (prev_fps.length > 100)
+        prev_fps = prev_fps.slice (1, prev_fps.length);
+    let fps_ave = prev_fps.reduce ((a,b)=>{return a+b}) / prev_fps.length;
+    let frame_time = 1000 / fps;
+    let frame_time_ave = 1000 / fps_ave;
+    let x = Math.floor (player.position.x * 100) / 100;
+    let y = Math.floor (player.position.y * 100) / 100;
+    let z = Math.floor (player.position.z * 100) / 100;
+    let tilt = Math.floor (player.tilt_amount * 100) / 100;
+    let pan = Math.floor (player.pan_amount * 100) / 100;
+    let [block_x, block_y, block_z] = convert_world_to_block_coords (player.position.x, player.position.y, player.position.z);
+    block_x = Math.floor (block_x * 100) / 100;
+    block_y = Math.floor (block_y * 100) / 100;
+    block_z = Math.floor (block_z * 100) / 100;
+    let [block_xi, block_yi, block_zi] = convert_world_to_block_index (player.position.x, player.position.y, player.position.z);
+    block_xi = Math.floor (block_xi * 100) / 100;
+    block_yi = Math.floor (block_yi * 100) / 100;
+    block_zi = Math.floor (block_zi * 100) / 100;
+    let [chunk_xi, chunk_yi, chunk_zi] = convert_world_to_chunk_index (player.position.x, player.position.y, player.position.z);
+    let [chunk_block_xi, chunk_block_yi, chunk_block_zi] = convert_world_to_chunk_block_index (player.position.x, player.position.y, player.position.z);
+    let block_type = world.get_block_type (block_xi, block_yi, block_zi);
+    let block_type_str = BLOCK_ID_STR_MAP.get (block_type);
+    // draw debug text
+    text (`FPS: ${fps.toFixed (0)}, Ave: ${fps_ave.toFixed (0)}\n` +
+        `frame time (ms): ${frame_time.toFixed (2)}, Ave: ${frame_time_ave.toFixed (2)}\n` +
+        `tilt:       ${tilt.toFixed (2)} (RAD), ${degrees (tilt).toFixed (2)} (DEG)\n` +
+        `pan:        ${pan.toFixed (2)} (RAD), ${degrees (pan).toFixed (2)} (DEG)\n` +
+        `XYZ:        ${x}, ${y}, ${z}\n` +
+        `block:      ${block_x}, ${block_y}, ${block_z}\n` +
+        `block_idx:  ${block_xi}, ${block_yi}, ${block_zi}\n` +
+        `chunk_idx:  ${chunk_xi}, ${chunk_yi}, ${chunk_zi}\n` +
+        `chunk_block_idx: ${chunk_block_xi}, ${chunk_block_yi}, ${chunk_block_zi}\n` +
+        `block id:   ${block_type_str}\n` +
+        `draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}`,
+        0, 0);
+    // draw paused text, if paused
+    if (is_game_paused)
     {
-        // get the camera's pan and tilt
-        let pan = atan2 (player.camera.eyeZ - player.camera.centerZ, player.camera.eyeX - player.camera.centerX);
-        let tilt = atan2 (player.camera.eyeY - player.camera.centerY, dist (player.camera.centerX, player.camera.centerZ, player.camera.eyeX, player.camera.eyeZ));
-        
-        // move to the camera's position to draw the overlay in front of the camera
-        translate (player.camera.eyeX, player.camera.eyeY, player.camera.eyeZ);
-        // rotate so that the overlay matches the pan and tilt of the camera
-        rotateY (-pan);
-        rotateZ (tilt + PI);
-        translate (200, 0, 0);
-        rotateY (-PI/2);
-        rotateZ (PI);
-        // left panel debug text
         push ();
-        {
-            // style
-            textSize (10);
-            textFont (overlay_font);
-            translate(-150, -150, 0);
-            textAlign (LEFT);
-            fill (255);
-            // load data
-            let fps = frameRate ();
-            prev_fps.push (fps);
-            if (prev_fps.length > 100)
-                prev_fps = prev_fps.slice (1, prev_fps.length);
-            let fps_ave = prev_fps.reduce ((a,b)=>{return a+b}) / prev_fps.length;
-            let frame_time = 1000 / fps;
-            let frame_time_ave = 1000 / fps_ave;
-            let x = Math.floor (player.position.x * 100) / 100;
-            let y = Math.floor (player.position.y * 100) / 100;
-            let z = Math.floor (player.position.z * 100) / 100;
-            let tilt = Math.floor (player.tilt_amount * 100) / 100;
-            let pan = Math.floor (player.pan_amount * 100) / 100;
-            let [block_x, block_y, block_z] = convert_world_to_block_coords (player.position.x, player.position.y, player.position.z);
-            block_x = Math.floor (block_x * 100) / 100;
-            block_y = Math.floor (block_y * 100) / 100;
-            block_z = Math.floor (block_z * 100) / 100;
-            let [block_xi, block_yi, block_zi] = convert_world_to_block_index (player.position.x, player.position.y, player.position.z);
-            block_xi = Math.floor (block_xi * 100) / 100;
-            block_yi = Math.floor (block_yi * 100) / 100;
-            block_zi = Math.floor (block_zi * 100) / 100;
-            let [chunk_xi, chunk_yi, chunk_zi] = convert_world_to_chunk_index (player.position.x, player.position.y, player.position.z);
-            let [chunk_block_xi, chunk_block_yi, chunk_block_zi] = convert_world_to_chunk_block_index (player.position.x, player.position.y, player.position.z);
-            let block_type = world.get_block_type (block_xi, block_yi, block_zi);
-            let block_type_str = BLOCK_ID_STR_MAP.get (block_type);
-            // draw debug text
-            text (`FPS: ${fps.toFixed (0)}, Ave: ${fps_ave.toFixed (0)}\n` +
-                  `frame time (ms): ${frame_time.toFixed (2)}, Ave: ${frame_time_ave.toFixed (2)}\n` +
-                  `tilt:       ${tilt.toFixed (2)} (RAD), ${degrees (tilt).toFixed (2)} (DEG)\n` +
-                  `pan:        ${pan.toFixed (2)} (RAD), ${degrees (pan).toFixed (2)} (DEG)\n` +
-                  `XYZ:        ${x}, ${y}, ${z}\n` +
-                  `block:      ${block_x}, ${block_y}, ${block_z}\n` +
-                  `block_idx:  ${block_xi}, ${block_yi}, ${block_zi}\n` +
-                  `chunk_idx:  ${chunk_xi}, ${chunk_yi}, ${chunk_zi}\n` +
-                  `chunk_block_idx: ${chunk_block_xi}, ${chunk_block_yi}, ${chunk_block_zi}\n` +
-                  `block id:   ${block_type_str}\n` +
-                  `draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}`,
-                  0, 0);
-        }
+        // darken background
+        fill (0, 0, 0, 175);
+        rect (0, 0, windowWidth, windowHeight);
+        // draw paused message
+        textSize (64);
+        textFont (overlay_font);
+        textAlign (CENTER);
+        fill (255);
+        text ("Paused", windowWidth / 2, windowHeight / 2 - 64);
+        textSize (32);
+        text ("Click anywhere to resume", windowWidth / 2, windowHeight / 2);
         pop ();
-        // draw paused text, if paused
-        if (is_game_paused)
-        {
-            push ();
-            // darken background
-            fill (0, 0, 0, 175);
-            rectMode (CENTER);
-            rect (0, 0, windowWidth, windowHeight);
-            // draw paused message
-            textSize (24);
-            textFont (overlay_font);
-            textAlign (CENTER);
-            fill (255);
-            text ("Paused", 0, 0);
-            textSize (10);
-            text ("Click anywhere to resume", 0, 24);
-            pop ();
-            // freeze game
-            // we freeze here to ensure we have the paused message
-            // before the game stops drawing
-            noLoop ();
-        }
-
+        // freeze game
+        // we freeze here to ensure we have the paused message
+        // before the game stops drawing
+        noLoop ();
     }
     pop ();
 }

@@ -24,13 +24,13 @@ class World
 
         // initialize the chunk map
         this.chunk_map.set ("0,0,0", new Chunk (0, 0, 0));
-        this.chunk_map.set ("0,0,1", new Chunk (0, 0, 1));
-        this.chunk_map.set ("1,0,0", new Chunk (1, 0, 0));
-        this.chunk_map.set ("1,0,1", new Chunk (1, 0, 1));
+        // this.chunk_map.set ("0,0,1", new Chunk (0, 0, 1));
+        // this.chunk_map.set ("1,0,0", new Chunk (1, 0, 0));
+        // this.chunk_map.set ("1,0,1", new Chunk (1, 0, 1));
         this.chunk_map.set ("0,1,0", new Chunk (0, 1, 0));
-        this.chunk_map.set ("0,1,1", new Chunk (0, 1, 1));
-        this.chunk_map.set ("1,1,0", new Chunk (1, 1, 0));
-        this.chunk_map.set ("1,1,1", new Chunk (1, 1, 1));
+        // this.chunk_map.set ("0,1,1", new Chunk (0, 1, 1));
+        // this.chunk_map.set ("1,1,0", new Chunk (1, 1, 0));
+        // this.chunk_map.set ("1,1,1", new Chunk (1, 1, 1));
     }
     
     // returns the block type at the given block indices.

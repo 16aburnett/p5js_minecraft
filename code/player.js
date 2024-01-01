@@ -41,7 +41,7 @@ class Player
 
         this.is_falling = false;
 
-        this.camera = createCamera ();
+        this.camera = graphics.createCamera ();
 
         this.width = BLOCK_WIDTH * 0.75;
         this.height = BLOCK_WIDTH * 1.75;
@@ -193,7 +193,7 @@ class Player
         camera_forward.normalize ();
         // focused_point is a point where the camera will look at which the camera needs
         let focused_point = p5.Vector.add (this.position, camera_forward);
-        camera (this.position.x, this.position.y-this.height, this.position.z, focused_point.x, focused_point.y-this.height, focused_point.z, this.up.x, this.up.y, this.up.z);
+        graphics.camera (this.position.x, this.position.y-this.height, this.position.z, focused_point.x, focused_point.y-this.height, focused_point.z, this.up.x, this.up.y, this.up.z);
         
     }
 
@@ -258,6 +258,6 @@ class Player
     // draws the player's model
     draw ()
     {
-        
+
     }
 }
