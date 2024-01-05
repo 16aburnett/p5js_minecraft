@@ -17,6 +17,7 @@ const KEY_Z = 'Z'.charCodeAt (0);
 const KEY_T = 'T'.charCodeAt (0);
 const KEY_G = 'G'.charCodeAt (0);
 const KEY_SPACEBAR = ' '.charCodeAt (0);
+const KEY_I = 'I'.charCodeAt (0);
 
 let texture_atlas;
 
@@ -37,6 +38,12 @@ let prev_fps = [];
 
 // the main 3D graphics
 let graphics;
+
+let inventory_display;
+let is_inventory_opened = false;
+let picked_up_item = null;
+let current_item_width = 50;
+let current_hotbar_index = 0;
 
 //========================================================================
 
@@ -81,6 +88,12 @@ function setup ()
     // start the game paused
     is_game_paused = true;
 
+    inventory_display = new InventoryDisplay ();
+
+    // disable right click browser menu popup
+    for (let element of document.getElementsByClassName ("p5Canvas"))
+        element.addEventListener ("contextmenu", (e) => e.preventDefault ());
+
 }
 
 //========================================================================
@@ -99,7 +112,6 @@ function draw ()
     process_key_input ();
 
     player.update ();
-    player.draw ();
     
     // setup light from Sun
     graphics.ambientLight (128, 128, 128);
@@ -107,12 +119,50 @@ function draw ()
     
     // draw world
     world.draw ();
-
     // draw the 3D graphics as an image to the main canvas
     image (graphics, 0, 0, windowWidth, windowHeight);
 
+    player.draw ();
+
     // draw overlay elements
     draw_overlay ();
+
+    // draw player's hotbar
+    draw_hotbar ();
+
+    // draw inventory overlay
+    // if user is in the inventory
+    if (is_inventory_opened)
+    {
+        inventory_display.draw ();
+        // draw held item
+        if (picked_up_item != null)
+        {
+            picked_up_item.draw (mouseX, mouseY, current_item_width, current_item_width);
+        }
+    }
+
+    // draw paused text, if paused
+    if (is_game_paused)
+    {
+        push ();
+        // darken background
+        fill (0, 0, 0, 175);
+        rect (0, 0, windowWidth, windowHeight);
+        // draw paused message
+        textSize (64);
+        textFont (overlay_font);
+        textAlign (CENTER);
+        fill (255);
+        text ("Paused", windowWidth / 2, windowHeight / 2 - 64);
+        textSize (32);
+        text ("Click anywhere to resume", windowWidth / 2, windowHeight / 2);
+        pop ();
+        // freeze game
+        // we freeze here to ensure we have the paused message
+        // before the game stops drawing
+        noLoop ();
+    }
 }
 
 //========================================================================
@@ -164,28 +214,29 @@ function draw_overlay ()
         `block id:   ${block_type_str}\n` +
         `draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}`,
         0, 0);
-    // draw paused text, if paused
-    if (is_game_paused)
-    {
-        push ();
-        // darken background
-        fill (0, 0, 0, 175);
-        rect (0, 0, windowWidth, windowHeight);
-        // draw paused message
-        textSize (64);
-        textFont (overlay_font);
-        textAlign (CENTER);
-        fill (255);
-        text ("Paused", windowWidth / 2, windowHeight / 2 - 64);
-        textSize (32);
-        text ("Click anywhere to resume", windowWidth / 2, windowHeight / 2);
-        pop ();
-        // freeze game
-        // we freeze here to ensure we have the paused message
-        // before the game stops drawing
-        noLoop ();
-    }
     pop ();
+}
+
+//========================================================================
+
+function draw_hotbar ()
+{
+    let cell_width = 50;
+    let cell_padding = 10;
+    let hotbar_width = cell_width + (cell_width + cell_padding) * 8 + 2 * cell_padding;
+    let hotbar_height = cell_padding + cell_width + cell_padding;
+    let hotbar_x = width / 2 - hotbar_width / 2;
+    let hotbar_y = height - hotbar_height;
+    fill ("#eee");
+    noStroke ();
+    rect (hotbar_x, hotbar_y, hotbar_width, hotbar_height);
+    // highlight currently selected item
+    let current_x = hotbar_x + current_hotbar_index * (cell_padding + cell_width);
+    fill ("#5a5aff");
+    noStroke ();
+    rect (current_x, hotbar_y, cell_padding + cell_width + cell_padding, cell_padding + cell_width + cell_padding);
+    // draw hotbar items
+    player.hotbar.draw (hotbar_x + cell_padding, hotbar_y + cell_padding, cell_width, cell_padding);
 }
 
 //========================================================================
@@ -291,19 +342,121 @@ function keyPressed ()
     {
         is_game_paused = true;
     }
+    // toggle inventory
+    if (keyCode == KEY_I)
+    {
+        is_inventory_opened = !is_inventory_opened;
+        // if we opened the inventory, then enable the mouse
+        // so that the player can interact with the inventory
+        exitPointerLock ();
+    }
+    // cycle through hotbar
+    if (keyCode == '1'.charCodeAt (0))
+        current_hotbar_index = 0;
+    else if (keyCode == '2'.charCodeAt (0))
+        current_hotbar_index = 1;
+    else if (keyCode == '3'.charCodeAt (0))
+        current_hotbar_index = 2;
+    else if (keyCode == '4'.charCodeAt (0))
+        current_hotbar_index = 3;
+    else if (keyCode == '5'.charCodeAt (0))
+        current_hotbar_index = 4;
+    else if (keyCode == '6'.charCodeAt (0))
+        current_hotbar_index = 5;
+    else if (keyCode == '7'.charCodeAt (0))
+        current_hotbar_index = 6;
+    else if (keyCode == '8'.charCodeAt (0))
+        current_hotbar_index = 7;
+    else if (keyCode == '9'.charCodeAt (0))
+        current_hotbar_index = 8;
 }
 
 //========================================================================
 
 function mousePressed ()
 {
-    // we need to first exit pointer lock in-case the cursor
-    // somehow got out of the lock
-    exitPointerLock ();
-    // resume the game (if it wasnt already running)
-    is_game_paused = false;
-    requestPointerLock ();
-    loop ();
+    // process mouse presses on the inventory display
+    if (is_inventory_opened)
+    {
+        let was_pressed = inventory_display.pressed ();
+        if (!was_pressed)
+        {
+            // we clicked on the screen but not on the inventory
+            // so close the inventory
+            is_inventory_opened = false;
+            // and relock the mouse so the player can control the camera
+            // we need to first exit pointer lock in-case the cursor
+            // somehow got out of the lock
+            exitPointerLock ();
+            // resume the game (if it wasnt already running)
+            is_game_paused = false;
+            requestPointerLock ();
+            loop ();
+            return;
+        }
+    }
+    // ensure that player isnt in their inventory
+    // unless the game is paused
+    if (!is_inventory_opened || is_game_paused)
+    {
+        // we need to first exit pointer lock in-case the cursor
+        // somehow got out of the lock
+        exitPointerLock ();
+        // resume the game (if it wasnt already running)
+        is_game_paused = false;
+        is_inventory_opened = false;
+        requestPointerLock ();
+        loop ();
+    }
+}
+
+//========================================================================
+
+function mouseReleased ()
+{
+    // process mouse releases on the inventory display
+    if (is_inventory_opened)
+    {
+        inventory_display.released ();
+    }
+}
+
+//========================================================================
+
+function mouseWheel (event)
+{
+    // scroll up
+    if (event.delta > 0)
+    {
+        for (let i = 0; i < Math.abs (event.delta); ++i)
+        {
+            current_hotbar_index++;
+            // ensure we wrap back to 0
+            if (current_hotbar_index > 8)
+                current_hotbar_index = 0;
+        }
+    }
+    // scroll down
+    else if (event.delta < 0)
+    {
+        for (let i = 0; i < Math.abs (event.delta); ++i)
+        {
+            current_hotbar_index--;
+            // ensure we wrap back to 8
+            if (current_hotbar_index < 0)
+                current_hotbar_index = 8;
+        }
+    }
+}
+
+//========================================================================
+
+function windowResized ()
+{
+    resizeCanvas (windowWidth, windowHeight);
+    graphics.resizeCanvas (windowWidth, windowHeight);
+    // reset camera perspective
+    graphics.perspective (radians (FOV_DEGREES), width / height, 0.1, 8000);
 }
 
 //========================================================================

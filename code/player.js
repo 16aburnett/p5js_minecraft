@@ -45,6 +45,23 @@ class Player
 
         this.width = BLOCK_WIDTH * 0.75;
         this.height = BLOCK_WIDTH * 1.75;
+
+        // player's currently equipped equipment
+        // helmet, chest, pants, boots, backpack?
+        this.equipment = new Inventory (4, 1);
+        // player's main inventory
+        this.inventory = new Inventory (3, 9);
+        this.inventory.add_item_at (0, 0, new ItemStack (new Item (BLOCK_ID_GRASS), 14));
+        this.inventory.add_item_at (0, 1, new ItemStack (new Item (BLOCK_ID_DIRT), 10));
+        this.inventory.add_item_at (0, 2, new ItemStack (new Item (BLOCK_ID_STONE), 24));
+        // player's hotbar
+        this.hotbar = new Inventory (1, 9);
+        this.hotbar.add_item_at (0, 0, new ItemStack (new Item (BLOCK_ID_WATER), 1));
+        this.hotbar.add_item_at (0, 1, new ItemStack (new Item (BLOCK_ID_DIRT), 64));
+        this.hotbar.add_item_at (0, 2, new ItemStack (new Item (BLOCK_ID_STONE), 35));
+        this.hotbar.add_item_at (0, 3, new ItemStack (new Item (BLOCK_ID_STONE), 1));
+        this.hotbar.add_item_at (0, 4, new ItemStack (new Item (BLOCK_ID_STONE), 3));
+        this.hotbar.add_item_at (0, 5, new ItemStack (new Item (BLOCK_ID_STONE), 5));
         
     }
 
@@ -258,6 +275,6 @@ class Player
     // draws the player's model
     draw ()
     {
-
+        this.inventory.draw ();
     }
 }

@@ -24,6 +24,10 @@ class Chunk
         // 3D array that stores block ids for this chunk
         // x, y, z
         this.blocks = [];
+
+        // keeps track of if this chunk is loaded
+        // we will draw this chunk only if it is loaded
+        this.is_loaded = true;
         
         // initialize chunk to air for now
         // [ x ][ y ][ z ]
@@ -83,6 +87,10 @@ class Chunk
     // draws all solid blocks (non-transparent) of this chunk 
     draw_solid_blocks ()
     {
+        // ensure chunk is loaded and ready
+        if (!this.is_loaded)
+            return;
+
         // move to chunk's position
         graphics.translate (this.x, this.y, this.z);
 
@@ -143,6 +151,10 @@ class Chunk
     // draw all transparent blocks of this chunk
     draw_transparent_blocks ()
     {
+        // ensure chunk is loaded and ready
+        if (!this.is_loaded)
+            return;
+
         // move to chunk's position
         graphics.translate (this.x, this.y, this.z);
 
@@ -184,14 +196,17 @@ function generate_terrain_for_chunk (chunk)
         for (let z = 0; z < CHUNK_SIZE; ++z)
         {
             // use noise to determine where to place the surface
-            let noise_scale = 0.06;
+            // scale changes frequency of change
+            let noise_scale = 0.05;
             let noise_range_low = 0;
             let noise_range_high = 1;
+            let noise_offset = 0.5;
             let noise_range = noise_range_high - noise_range_low;
-            let noise_value = noise (noise_scale * (x + chunk.xi * CHUNK_SIZE), noise_scale * (z + chunk.zi * CHUNK_SIZE));
+            let noise_value = noise (noise_offset + noise_scale * (x + chunk.xi * CHUNK_SIZE), noise_offset + noise_scale * (z + chunk.zi * CHUNK_SIZE));
             let sea_level = Math.round (WORLD_HEIGHT/2);
-            let surface_height_range_low = sea_level - 8;
-            let surface_height_range_high = sea_level + 8;
+            // play with these offsets to change between more hill-y or ocean-y
+            let surface_height_range_low = sea_level - 10;
+            let surface_height_range_high = sea_level + 10;
             let surface_height_range = surface_height_range_high - surface_height_range_low;
             let block_y_surface_height = Math.floor ((((noise_value - noise_range_low) * surface_height_range) / noise_range) + surface_height_range_low);
             let block_y_min = CHUNK_SIZE * chunk.yi;

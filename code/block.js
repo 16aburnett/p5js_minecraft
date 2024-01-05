@@ -58,12 +58,13 @@ let map_block_id_to_block_static_data;
 // this represents 
 class BlockStaticData
 {
-    constructor (block_id, texture_atlas_data, texture_img_data, fill_color)
+    constructor (block_id, texture_atlas_data, texture_img_data, fill_color, stack_max_size)
     {
         this.block_id = block_id;
         this.texture_atlas_data = texture_atlas_data;
         this.texture_img_data = texture_img_data;
         this.fill_color = fill_color;
+        this.stack_max_size = stack_max_size;
     }
 }
 
@@ -91,7 +92,8 @@ function block_setup ()
             texture_null, // sides
             texture_null  // bottom
         ], 
-        [100, 150, 255, 100])
+        [100, 150, 255, 100],
+        stack_max_size=64)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_GRASS, new BlockStaticData (
         BLOCK_ID_GRASS, 
@@ -105,7 +107,8 @@ function block_setup ()
             texture_grass_side, // sides
             texture_dirt  // bottom
         ], 
-        "lime")
+        "lime",
+        stack_max_size=64)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_DIRT, new BlockStaticData (
         BLOCK_ID_DIRT, 
@@ -119,7 +122,8 @@ function block_setup ()
             texture_dirt, // sides
             texture_dirt  // bottom
         ], 
-        "#964B00")
+        "#964B00",
+        stack_max_size=64)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_STONE, new BlockStaticData (
         BLOCK_ID_STONE, 
@@ -133,7 +137,8 @@ function block_setup ()
             texture_stone, // sides
             texture_stone  // bottom
         ], 
-        "gray")
+        "gray",
+        stack_max_size=64)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_WATER, new BlockStaticData (
         BLOCK_ID_WATER, 
@@ -147,7 +152,8 @@ function block_setup ()
             texture_water, // sides
             texture_water  // bottom
         ], 
-        [50, 100, 255, 150])
+        [50, 100, 255, 150],
+        stack_max_size=64)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_SAND, new BlockStaticData (
         BLOCK_ID_SAND, 
@@ -161,7 +167,8 @@ function block_setup ()
             texture_sand, // sides
             texture_sand  // bottom
         ], 
-        "#C2B280")
+        "#C2B280",
+        stack_max_size=16)
     );
 
 }

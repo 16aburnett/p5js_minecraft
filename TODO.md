@@ -81,7 +81,12 @@ this is good material
             due to backface culling - aka the geometry is the bottleneck (not the code)
 
 
-
+# Inventory
+- press+release puts item into mouse
+- press+release to place item into inv
+- right click - takes half
+- right click with something in hand drops one of that item
+- shift + click automatically sends to the top inventory
 
 # Collision detection
 take the previous frame's position
