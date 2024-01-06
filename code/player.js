@@ -56,12 +56,11 @@ class Player
         this.inventory.add_item_at (0, 2, new ItemStack (new Item (BLOCK_ID_STONE), 24));
         // player's hotbar
         this.hotbar = new Inventory (1, 9);
-        this.hotbar.add_item_at (0, 0, new ItemStack (new Item (BLOCK_ID_WATER), 1));
+        this.hotbar.add_item_at (0, 0, new ItemStack (new Item (BLOCK_ID_GRASS), 64));
         this.hotbar.add_item_at (0, 1, new ItemStack (new Item (BLOCK_ID_DIRT), 64));
-        this.hotbar.add_item_at (0, 2, new ItemStack (new Item (BLOCK_ID_STONE), 35));
-        this.hotbar.add_item_at (0, 3, new ItemStack (new Item (BLOCK_ID_STONE), 1));
-        this.hotbar.add_item_at (0, 4, new ItemStack (new Item (BLOCK_ID_STONE), 3));
-        this.hotbar.add_item_at (0, 5, new ItemStack (new Item (BLOCK_ID_STONE), 5));
+        this.hotbar.add_item_at (0, 2, new ItemStack (new Item (BLOCK_ID_STONE), 64));
+        this.hotbar.add_item_at (0, 3, new ItemStack (new Item (BLOCK_ID_SAND), 64));
+        this.hotbar.add_item_at (0, 4, new ItemStack (new Item (BLOCK_ID_WATER), 64));
         
     }
 
@@ -212,6 +211,192 @@ class Player
         let focused_point = p5.Vector.add (this.position, camera_forward);
         graphics.camera (this.position.x, this.position.y-this.height, this.position.z, focused_point.x, focused_point.y-this.height, focused_point.z, this.up.x, this.up.y, this.up.z);
         
+        // raycasting V1
+        // determine what block the player is pointing at (if any)
+        this.ray_casting_v1 (camera_forward, createVector (this.camera.eyeX, this.camera.eyeY, this.camera.eyeZ));
+    }
+
+    // sends out a ray and samples multiple points along that line
+    // this is not perfect. corners/edges could be inbetween points and get missed
+    ray_casting_v1 (camera_forward, camera_position)
+    {
+        // start with a ray pointing from the camera 
+        // to the direction that the camera is facing.
+        let ray = camera_forward;
+        // we need to scale the ray to the player's interaction range
+        // aka, the player can interact with blocks up to 5 blocks away (in radius)
+        let range = 5 * BLOCK_WIDTH;
+        ray = p5.Vector.setMag (ray, range);
+        // assume that we aren't looking at a block
+        // and update it afterwards
+        current_pointed_at_block = null;
+        // check multiple points along the ray for collisions with blocks
+        // **this is not perfect because a block's corner/edge may
+        // intersect with the ray inbetween points
+        // however, it seems like we can turn this up to 100 samples
+        // without any noticeable drop to performance (steady 60 fps with one chunk)
+        let num_points = 100;
+        let p_prev = createVector (0, 0, 0);
+        for (let i = 1; i <= num_points; ++i)
+        {
+            let p = p5.Vector.add (camera_position, p5.Vector.mult (ray, i / num_points));
+            // check if point is inside a block
+            let [block_x, block_y, block_z] = convert_world_to_block_index (p.x, p.y, p.z);
+            let block_type = world.get_block_type (block_x, block_y, block_z);
+            // ignore if no block, or airblock, or water
+            if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+            {
+                // point is inside a block
+                // save the block as a vector
+                current_pointed_at_block = createVector (block_x, block_y, block_z);
+                // draw the intersection point for debugging
+                if (is_in_debug_mode)
+                {
+                    graphics.fill (255);
+                    graphics.noStroke ();
+                    graphics.translate (p);
+                    graphics.sphere (1);
+                    graphics.translate (p5.Vector.mult (p, -1));
+                }
+                // determine which face of the block's hitbox was intersected
+                // front
+                let [world_x, world_y, world_z] = convert_block_index_to_world_coords (block_x, block_y, block_z);
+                let x0 = world_x;
+                let x1 = world_x + BLOCK_WIDTH;
+                let y0 = world_y - BLOCK_WIDTH; // up is -y
+                let y1 = world_y;
+                let z0 = world_z + BLOCK_WIDTH;
+                let z1 = world_z + BLOCK_WIDTH;
+                let are_left_of_face = p_prev.x < x0 && p.x < x0;
+                let are_right_of_face = p_prev.x > x1 && p.x > x1;
+                let are_infront_of_face = p_prev.z > z0 && p.z > z0;
+                let are_behind_face = p_prev.z < z1 && p.z < z1;
+                let are_above_face = p_prev.y < y0 && p.y < y0;
+                let are_below_face = p_prev.y > y1 && p.y > y1;
+                if (!are_left_of_face && !are_right_of_face && !are_infront_of_face && !are_behind_face && !are_above_face && !are_below_face)
+                {
+                    // intersects!
+                    // console.log ("intersects front face!");
+                    // save neighbor block so we know where to place a new block
+                    pointed_at_block_neighbor = createVector (block_x, block_y, block_z+1);
+                    // found a point - so stop looking
+                    break;
+                }
+                // back
+                x0 = world_x;
+                x1 = world_x + BLOCK_WIDTH;
+                y0 = world_y - BLOCK_WIDTH; // up is -y
+                y1 = world_y;
+                z0 = world_z;
+                z1 = world_z;
+                are_left_of_face = p_prev.x < x0 && p.x < x0;
+                are_right_of_face = p_prev.x > x1 && p.x > x1;
+                are_infront_of_face = p_prev.z < z0 && p.z < z0;
+                are_behind_face = p_prev.z > z0 && p.z > z0;
+                are_above_face = p_prev.y < y0 && p.y < y0;
+                are_below_face = p_prev.y > y1 && p.y > y1;
+                if (!are_left_of_face && !are_right_of_face && !are_infront_of_face && !are_behind_face && !are_above_face && !are_below_face)
+                {
+                    // intersects!
+                    // console.log ("intersects behind face!");
+                    // save neighbor block so we know where to place a new block
+                    pointed_at_block_neighbor = createVector (block_x, block_y, block_z-1);
+                    // found a point - so stop looking
+                    break;
+                }
+                // left
+                x0 = world_x;
+                x1 = world_x;
+                y0 = world_y - BLOCK_WIDTH; // up is -y
+                y1 = world_y;
+                z0 = world_z;
+                z1 = world_z + BLOCK_WIDTH;
+                are_left_of_face = p_prev.x < x0 && p.x < x0;
+                are_right_of_face = p_prev.x > x1 && p.x > x1;
+                are_infront_of_face = p_prev.z > z1 && p.z > z1;
+                are_behind_face = p_prev.z < z0 && p.z < z0;
+                are_above_face = p_prev.y < y0 && p.y < y0;
+                are_below_face = p_prev.y > y1 && p.y > y1;
+                if (!are_left_of_face && !are_right_of_face && !are_infront_of_face && !are_behind_face && !are_above_face && !are_below_face)
+                {
+                    // intersects!
+                    // console.log ("intersects left face!");
+                    // save neighbor block so we know where to place a new block
+                    pointed_at_block_neighbor = createVector (block_x-1, block_y, block_z);
+                    // found a point - so stop looking
+                    break;
+                }
+                // right
+                x0 = world_x + BLOCK_WIDTH;
+                x1 = world_x + BLOCK_WIDTH;
+                y0 = world_y - BLOCK_WIDTH; // up is -y
+                y1 = world_y;
+                z0 = world_z;
+                z1 = world_z + BLOCK_WIDTH;
+                are_left_of_face = p_prev.x < x0 && p.x < x0;
+                are_right_of_face = p_prev.x > x1 && p.x > x1;
+                are_infront_of_face = p_prev.z > z1 && p.z > z1;
+                are_behind_face = p_prev.z < z0 && p.z < z0;
+                are_above_face = p_prev.y < y0 && p.y < y0;
+                are_below_face = p_prev.y > y1 && p.y > y1;
+                if (!are_left_of_face && !are_right_of_face && !are_infront_of_face && !are_behind_face && !are_above_face && !are_below_face)
+                {
+                    // intersects!
+                    // console.log ("intersects right face!");
+                    // save neighbor block so we know where to place a new block
+                    pointed_at_block_neighbor = createVector (block_x+1, block_y, block_z);
+                    // found a point - so stop looking
+                    break;
+                }
+                // top
+                x0 = world_x;
+                x1 = world_x + BLOCK_WIDTH;
+                y0 = world_y - BLOCK_WIDTH; // up is -y
+                y1 = world_y - BLOCK_WIDTH;
+                z0 = world_z;
+                z1 = world_z + BLOCK_WIDTH;
+                are_left_of_face = p_prev.x < x0 && p.x < x0;
+                are_right_of_face = p_prev.x > x1 && p.x > x1;
+                are_infront_of_face = p_prev.z > z1 && p.z > z1;
+                are_behind_face = p_prev.z < z0 && p.z < z0;
+                are_above_face = p_prev.y < y0 && p.y < y0;
+                are_below_face = p_prev.y > y1 && p.y > y1;
+                if (!are_left_of_face && !are_right_of_face && !are_infront_of_face && !are_behind_face && !are_above_face && !are_below_face)
+                {
+                    // intersects!
+                    // console.log ("intersects top face!");
+                    // save neighbor block so we know where to place a new block
+                    pointed_at_block_neighbor = createVector (block_x, block_y+1, block_z);
+                    // found a point - so stop looking
+                    break;
+                }
+                // bottom
+                x0 = world_x;
+                x1 = world_x + BLOCK_WIDTH;
+                y0 = world_y; // up is -y
+                y1 = world_y;
+                z0 = world_z;
+                z1 = world_z + BLOCK_WIDTH;
+                are_left_of_face = p_prev.x < x0 && p.x < x0;
+                are_right_of_face = p_prev.x > x1 && p.x > x1;
+                are_infront_of_face = p_prev.z > z1 && p.z > z1;
+                are_behind_face = p_prev.z < z0 && p.z < z0;
+                are_above_face = p_prev.y < y0 && p.y < y0;
+                are_below_face = p_prev.y > y1 && p.y > y1;
+                if (!are_left_of_face && !are_right_of_face && !are_infront_of_face && !are_behind_face && !are_above_face && !are_below_face)
+                {
+                    // intersects!
+                    // console.log ("intersects bottom face!");
+                    // save neighbor block so we know where to place a new block
+                    pointed_at_block_neighbor = createVector (block_x, block_y-1, block_z);
+                    // found a point - so stop looking
+                    break;
+                }
+                // found a point - so stop looking
+                break;
+            }
+            p_prev = p;
+        }
     }
 
     // **assumes that player wasn't already colliding with a block
@@ -277,4 +462,19 @@ class Player
     {
         this.inventory.draw ();
     }
+}
+
+
+// equation from https://www.scratchapixel.com/lessons/3d-basic-rendering/minimal-ray-tracer-rendering-simple-shapes/ray-plane-and-ray-disk-intersection.html
+// returns a tuple of t and a boolean of whether there was an intersection or not
+// this assumes that vectors are normalized
+function calc_ray_plane_intersection (plane_normal, plane_point, line_origin, line_vec)
+{
+    let denom = p5.Vector.dot (plane_normal, line_vec);
+    if (denom > 1e-6)
+    {
+        let t = p5.Vector.dot (p5.Vector.sub (plane_point, line_origin), plane_normal) / denom;
+        return [t, (t >= 0)];
+    }
+    return [0, false];
 }

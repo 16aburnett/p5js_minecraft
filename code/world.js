@@ -75,6 +75,43 @@ class World
         return this.chunk_map.get (`${chunk_xi},${chunk_yi},${chunk_zi}`).blocks[chunk_block_xi][chunk_block_yi][chunk_block_zi];
     }
 
+    set_block_at (block_id, block_xi, block_yi, block_zi)
+    {
+        let chunk_xi = Math.floor (block_xi / CHUNK_SIZE);
+        let chunk_yi = Math.floor (block_yi / CHUNK_SIZE);
+        let chunk_zi = Math.floor (block_zi / CHUNK_SIZE);
+
+        // ensure chunk is loaded
+        if (!this.chunk_map.has (`${chunk_xi},${chunk_yi},${chunk_zi}`))
+            // dont place anything since the chunk isnt loaded
+            return;
+
+        // convert block idx to chunk block idx
+        // ignoring chunk_block_yi bc chunks occupy full world height atm
+        let [chunk_block_xi, chunk_block_yi, chunk_block_zi] = convert_block_index_to_chunk_block_index (block_xi, block_yi, block_zi);
+
+        // set block id
+        this.chunk_map.get (`${chunk_xi},${chunk_yi},${chunk_zi}`).blocks[chunk_block_xi][chunk_block_yi][chunk_block_zi] = block_id;
+    }
+
+    delete_block_at (block_xi, block_yi, block_zi)
+    {
+        let chunk_xi = Math.floor (block_xi / CHUNK_SIZE);
+        let chunk_yi = Math.floor (block_yi / CHUNK_SIZE);
+        let chunk_zi = Math.floor (block_zi / CHUNK_SIZE);
+
+        // ensure chunk is loaded
+        if (!this.chunk_map.has (`${chunk_xi},${chunk_yi},${chunk_zi}`))
+            return null;
+
+        // convert block idx to chunk block idx
+        // ignoring chunk_block_yi bc chunks occupy full world height atm
+        let [chunk_block_xi, chunk_block_yi, chunk_block_zi] = convert_block_index_to_chunk_block_index (block_xi, block_yi, block_zi);
+
+        // remove block (aka set to air)
+        this.chunk_map.get (`${chunk_xi},${chunk_yi},${chunk_zi}`).blocks[chunk_block_xi][chunk_block_yi][chunk_block_zi] = BLOCK_ID_AIR;
+    }
+
     update ()
     {
         
@@ -154,4 +191,14 @@ function convert_block_index_to_chunk_block_index (block_xi, block_yi, block_zi)
     let chunk_block_yi = block_yi < 0 ? (block_yi + 1) % CHUNK_SIZE + (CHUNK_SIZE - 1) : block_yi % CHUNK_SIZE;
     let chunk_block_zi = block_zi < 0 ? (block_zi + 1) % CHUNK_SIZE + (CHUNK_SIZE - 1) : block_zi % CHUNK_SIZE;
     return [chunk_block_xi, chunk_block_yi, chunk_block_zi];
+}
+
+//========================================================================
+
+function convert_block_index_to_world_coords (block_xi, block_yi, block_zi)
+{
+    let world_x =  block_xi * BLOCK_WIDTH;
+    let world_y = -block_yi * BLOCK_WIDTH;
+    let world_z =  block_zi * BLOCK_WIDTH;
+    return [world_x, world_y, world_z];
 }

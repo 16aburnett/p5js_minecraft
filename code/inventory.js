@@ -42,6 +42,8 @@ class ItemStack
         this.item.draw (x, y, width);
         // draw stack count
         fill (255);
+        stroke (0);
+        strokeWeight (5);
         textSize (width/2);
         textAlign (RIGHT, BOTTOM);
         text (this.amount.toString (), x + width, y + width);

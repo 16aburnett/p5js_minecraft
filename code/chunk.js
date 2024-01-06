@@ -4,8 +4,6 @@
 //========================================================================
 // Globals
 
-let is_chunk_debug_border_shown = true;
-
 //========================================================================
 
 class Chunk
@@ -95,7 +93,7 @@ class Chunk
         graphics.translate (this.x, this.y, this.z);
 
         // draw outline of chunk
-        if (is_chunk_debug_border_shown)
+        if (is_in_debug_mode)
         {
             // boxes are draw from the center so we need to align to the chunk
             graphics.translate (CHUNK_SIZE * BLOCK_WIDTH / 2, -CHUNK_SIZE * BLOCK_WIDTH / 2, CHUNK_SIZE * BLOCK_WIDTH / 2);
@@ -129,8 +127,8 @@ class Chunk
                 // ensure z direction has blocks for this x,y
                 // we dont have to waste time iterating over depth
                 // if there isnt any blocks
-                if (this.blocks[i][j][CHUNK_SIZE] == 0)
-                    continue;
+                // if (this.blocks[i][j][CHUNK_SIZE] == 0)
+                //     continue;
                 // loop over z direction drawing blocks back to forward
                 for (let k = 0; k < CHUNK_SIZE; ++k)
                 {
@@ -168,8 +166,8 @@ class Chunk
                 // ensure z direction has blocks for this x,y
                 // we dont have to waste time iterating over depth
                 // if there isnt any blocks
-                if (this.blocks[i][j][CHUNK_SIZE] == 0)
-                    continue;
+                // if (this.blocks[i][j][CHUNK_SIZE] == 0)
+                //     continue;
                 // loop over z direction drawing blocks back to forward
                 for (let k = 0; k < CHUNK_SIZE; ++k)
                 {

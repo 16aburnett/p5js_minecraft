@@ -4,6 +4,23 @@
 // Globals
 
 let player;
+// keep track of the block that the player is pointing at
+let current_pointed_at_block = null;
+let pointed_at_block_neighbor = null;
+
+let is_in_debug_mode = true;
+
+// Creative mode
+// - instantly break blocks
+// - placing blocks does not consume them
+// - allows flying
+const PLAYER_MODE_CREATIVE = 0;
+// Survival mode
+// - **not yet implemented
+// - takes time to break blocks
+// - placing blocks consumes inventory resources
+const PLAYER_MODE_SURVIVAL = 1;
+let current_player_mode = PLAYER_MODE_CREATIVE;
 
 let overlay_font;
 
@@ -119,15 +136,25 @@ function draw ()
     
     // draw world
     world.draw ();
+    // draw outline for pointed at block
+    if (current_pointed_at_block != null)
+    {
+        graphics.noFill ();
+        graphics.strokeWeight (2);
+        graphics.stroke (0);
+        let [world_x, world_y, world_z] = convert_block_index_to_world_coords (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
+        graphics.translate (world_x + BLOCK_WIDTH/2, world_y-BLOCK_WIDTH/2, world_z+BLOCK_WIDTH/2);
+        graphics.box (BLOCK_WIDTH);
+    }
+    
+    player.draw ();
+
     // draw the 3D graphics as an image to the main canvas
     image (graphics, 0, 0, windowWidth, windowHeight);
 
-    player.draw ();
-
     // draw overlay elements
-    draw_overlay ();
-
-    // draw player's hotbar
+    if (is_in_debug_mode) draw_debug_overlay ();
+    draw_cursor ();
     draw_hotbar ();
 
     // draw inventory overlay
@@ -167,7 +194,7 @@ function draw ()
 
 //========================================================================
 
-function draw_overlay ()
+function draw_debug_overlay ()
 {
     push ();
     // style
@@ -176,6 +203,8 @@ function draw_overlay ()
     // translate(-150, -150, 0);
     textAlign (LEFT, TOP);
     fill (255);
+    stroke (0);
+    strokeWeight (5);
     // load data
     let fps = frameRate ();
     prev_fps.push (fps);
@@ -201,6 +230,8 @@ function draw_overlay ()
     let [chunk_block_xi, chunk_block_yi, chunk_block_zi] = convert_world_to_chunk_block_index (player.position.x, player.position.y, player.position.z);
     let block_type = world.get_block_type (block_xi, block_yi, block_zi);
     let block_type_str = BLOCK_ID_STR_MAP.get (block_type);
+    let pointing_at_block = current_pointed_at_block == null ? "null" : `${current_pointed_at_block.x}, ${current_pointed_at_block.y}, ${current_pointed_at_block.z}`;
+    let pointing_at_block_type = current_pointed_at_block == null ? "null" : BLOCK_ID_STR_MAP.get (world.get_block_type (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z));
     // draw debug text
     text (`FPS: ${fps.toFixed (0)}, Ave: ${fps_ave.toFixed (0)}\n` +
         `frame time (ms): ${frame_time.toFixed (2)}, Ave: ${frame_time_ave.toFixed (2)}\n` +
@@ -212,9 +243,24 @@ function draw_overlay ()
         `chunk_idx:  ${chunk_xi}, ${chunk_yi}, ${chunk_zi}\n` +
         `chunk_block_idx: ${chunk_block_xi}, ${chunk_block_yi}, ${chunk_block_zi}\n` +
         `block id:   ${block_type_str}\n` +
-        `draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}`,
+        `draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}\n` +
+        `pointing at block: ${pointing_at_block}\n` +
+        `pointing at block type: ${pointing_at_block_type}`,
         0, 0);
     pop ();
+}
+
+//========================================================================
+
+function draw_cursor ()
+{
+    fill (255, 255, 255);
+    stroke (0);
+    strokeWeight (1);
+    let w = 30;
+    let h = 5;
+    rect (width/2 - h/2, height/2 - w/2, h, w);
+    rect (width/2 - w/2, height/2 - h/2, w, h);
 }
 
 //========================================================================
@@ -324,10 +370,10 @@ function keyPressed ()
         // wrapping back to the first after the last draw
         current_draw_style = (current_draw_style + 1) % DRAW_STYLE_MAX;
     }
-    // toggle chunk debug grid lines
+    // toggle debug mode
     if (keyCode == KEY_G)
     {
-        is_chunk_debug_border_shown = !is_chunk_debug_border_shown;
+        is_in_debug_mode = !is_in_debug_mode;
     }
     // pause game
     // I think the pointer lock hijacks this so we actually need to double-click
@@ -393,6 +439,44 @@ function mousePressed ()
             requestPointerLock ();
             loop ();
             return;
+        }
+    }
+    if (!is_inventory_opened && !is_game_paused)
+    {
+        // mine/delete blocks or attack
+        if (mouseButton === LEFT)
+        {
+            if (current_pointed_at_block != null)
+            {
+                // delete the block
+                world.delete_block_at (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
+            }
+        }
+        // place block or use item
+        else if (mouseButton === RIGHT)
+        {
+            if (current_pointed_at_block != null)
+            {
+                // place the block from the player's inventory (if there is one)
+                if (player.hotbar.slots[current_hotbar_index] != null)
+                {
+                    let block_id_to_place = player.hotbar.slots[current_hotbar_index].item.item_id;
+                    // dont place anything if nothing in hand
+                    if (block_id_to_place != null)
+                    {
+                        world.set_block_at (block_id_to_place, pointed_at_block_neighbor.x, pointed_at_block_neighbor.y, pointed_at_block_neighbor.z);
+                        // decrement blocks (if not in creative mode)
+                        if (current_player_mode != PLAYER_MODE_CREATIVE)
+                        {
+                            // decrement item stack
+                            player.hotbar.slots[current_hotbar_index].amount--;
+                            // remove item stack if no more items
+                            if (player.hotbar.slots[current_hotbar_index].amount <= 0)
+                                player.hotbar.slots[current_hotbar_index] = null;
+                        }
+                    }
+                }
+            }
         }
     }
     // ensure that player isnt in their inventory
