@@ -35,20 +35,20 @@ class World
         this.chunk_map.set ("1,0,1", new Chunk (1, 0, 1));
         this.chunk_map.set ("1,1,1", new Chunk (1, 1, 1));
     
-        this.chunk_map.set ("-1,0,0", new Chunk (-1, 0, 0));
-        this.chunk_map.set ("-1,1,0", new Chunk (-1, 1, 0));
+        // this.chunk_map.set ("-1,0,0", new Chunk (-1, 0, 0));
+        // this.chunk_map.set ("-1,1,0", new Chunk (-1, 1, 0));
         
-        this.chunk_map.set ("-1,0,1", new Chunk (-1, 0, 1));
-        this.chunk_map.set ("-1,1,1", new Chunk (-1, 1, 1));
+        // this.chunk_map.set ("-1,0,1", new Chunk (-1, 0, 1));
+        // this.chunk_map.set ("-1,1,1", new Chunk (-1, 1, 1));
 
-        this.chunk_map.set ("-1,0,-1", new Chunk (-1, 0, -1));
-        this.chunk_map.set ("-1,1,-1", new Chunk (-1, 1, -1));
+        // this.chunk_map.set ("-1,0,-1", new Chunk (-1, 0, -1));
+        // this.chunk_map.set ("-1,1,-1", new Chunk (-1, 1, -1));
 
-        this.chunk_map.set ("0,0,-1", new Chunk (0, 0, -1));
-        this.chunk_map.set ("0,1,-1", new Chunk (0, 1, -1));
+        // this.chunk_map.set ("0,0,-1", new Chunk (0, 0, -1));
+        // this.chunk_map.set ("0,1,-1", new Chunk (0, 1, -1));
 
-        this.chunk_map.set ("1,0,-1", new Chunk (1, 0, -1));
-        this.chunk_map.set ("1,1,-1", new Chunk (1, 1, -1));
+        // this.chunk_map.set ("1,0,-1", new Chunk (1, 0, -1));
+        // this.chunk_map.set ("1,1,-1", new Chunk (1, 1, -1));
     }
     
     // returns the block type at the given block indices.
@@ -73,6 +73,32 @@ class World
         
         // return the block
         return this.chunk_map.get (`${chunk_xi},${chunk_yi},${chunk_zi}`).blocks[chunk_block_xi][chunk_block_yi][chunk_block_zi];
+    }
+
+    // Axis-Aligned Bounding Box
+    get_block_AABB (block_xi, block_yi, block_zi)
+    {
+        let chunk_xi = Math.floor (block_xi / CHUNK_SIZE);
+        let chunk_yi = Math.floor (block_yi / CHUNK_SIZE);
+        let chunk_zi = Math.floor (block_zi / CHUNK_SIZE);
+
+        // ensure chunk is loaded
+        if (!this.chunk_map.has (`${chunk_xi},${chunk_yi},${chunk_zi}`))
+            return null;
+
+        // convert block idx to chunk block idx
+        // ignoring chunk_block_yi bc chunks occupy full world height atm
+        let [world_x, world_y, world_z] = convert_block_index_to_world_coords (block_xi, block_yi, block_zi);
+        
+        return [
+            world_x,
+            world_x + BLOCK_WIDTH,
+            world_y,
+            world_y - BLOCK_WIDTH,
+            world_z,
+            world_z + BLOCK_WIDTH
+        ];
+
     }
 
     set_block_at (block_id, block_xi, block_yi, block_zi)

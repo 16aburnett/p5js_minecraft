@@ -6,7 +6,7 @@
 
 const BACK_FACE_CULLING = true;
 
-const BLOCK_WIDTH = 16;
+const BLOCK_WIDTH = 1;
 
 // Block IDs that represent the different kinds of blocks
 const BLOCK_ID_NONE       = -1;

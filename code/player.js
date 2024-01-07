@@ -4,14 +4,26 @@
 //========================================================================
 // Globals
 
-const GRAVITY_ACCELERATION = 1;
-const TERMINAL_VELOCITY = 20;
-const JUMP_FORCE = 5;
+// Normal - gravity, jumping, collides with blocks
+const PLAYER_CONTROL_MODE_NORMAL = 0;
+// Flying - no gravity, flying, collides with blocks
+const PLAYER_CONTROL_MODE_FLYING = 1;
+// No-Clip - no gravity, flying, no collisions
+const PLAYER_CONTROL_MODE_NOCLIP = 2;
+const PLAYER_CONTROL_MODE_MAX    = 3;
+const PLAYER_CONTROL_MODE_STR_MAP = new Map ();
+PLAYER_CONTROL_MODE_STR_MAP.set (PLAYER_CONTROL_MODE_NORMAL , "PLAYER_CONTROL_MODE_NORMAL");
+PLAYER_CONTROL_MODE_STR_MAP.set (PLAYER_CONTROL_MODE_FLYING  , "PLAYER_CONTROL_MODE_FLYING");
+PLAYER_CONTROL_MODE_STR_MAP.set (PLAYER_CONTROL_MODE_NOCLIP, "PLAYER_CONTROL_MODE_NOCLIP");
+
+const GRAVITY_ACCELERATION = 20;
+const TERMINAL_VELOCITY = 50;
+const JUMP_FORCE = 8;
 
 const FOV_DEGREES = 90;
 const CAMERA_LOOK_SPEED = 0.002;
 const CAMERA_RUN_LOOK_SPEED = CAMERA_LOOK_SPEED*2;
-const CAMERA_MOVEMENT_SPEED = 0.05;
+const CAMERA_MOVEMENT_SPEED = 0.1;
 const CAMERA_RUN_MOVEMENT_SPEED = CAMERA_MOVEMENT_SPEED*4;
 
 //========================================================================
@@ -20,7 +32,7 @@ class Player
 {
     constructor ()
     {
-        // position is the bottom middle of the player
+        // player position is from bottom middle position
         this.position = createVector (0, 0, 0);
         this.velocity = createVector (0, 0, 0);
 
@@ -39,7 +51,7 @@ class Player
         // the rate at which the player's velocity dampens
         this.friction_factor = 0.75;
 
-        this.is_falling = false;
+        this.is_falling = true;
 
         this.camera = graphics.createCamera ();
 
@@ -62,6 +74,7 @@ class Player
         this.hotbar.add_item_at (0, 3, new ItemStack (new Item (BLOCK_ID_SAND), 64));
         this.hotbar.add_item_at (0, 4, new ItemStack (new Item (BLOCK_ID_WATER), 64));
         
+        this.control_mode = PLAYER_CONTROL_MODE_NORMAL;
     }
 
     set_position (x, y, z)
@@ -69,6 +82,18 @@ class Player
         this.position.x = x;
         this.position.y = y;
         this.position.z = z;
+    }
+
+    get_AABB ()
+    {
+        return [
+            this.position.x - this.width/2,
+            this.position.x + this.width/2,
+            this.position.y,
+            this.position.y - this.height,
+            this.position.z - this.width/2,
+            this.position.z + this.width/2
+        ];
     }
 
     // applies a left/right (X axis) speed to the player
@@ -130,78 +155,157 @@ class Player
         this.forward.normalize ();
         this.right = createVector (cos (this.pan_amount - PI/2), 0, sin (this.pan_amount - PI/2));
 
-        // determine if player is on the ground or is falling
-        // this is done by checking the block below the player
-        // convert player position to block coords
-        // let [chunk_x, chunk_z] = get_containing_chunk (this.position.x, this.position.z);
-        // let [block_x, block_y, block_z] = convert_world_to_block (this.position.x, this.position.y, this.position.z);
-        // this.is_falling = true;
-        // // ensure chunk is loaded
-        // if (chunk_map.has (`${chunk_x},${chunk_z}`))
-        // {
-        //     // ensure player is within y range
-        //     if (block_y < WORLD_HEIGHT && block_y >= 0)
-        //     {
-        //         let chunk = chunk_map.get (`${chunk_x},${chunk_z}`);
-        //         // convert world block to chunk block
-        //         let chunk_block_xi = block_x % CHUNK_SIZE;
-        //         let chunk_block_yi = block_y;
-        //         let chunk_block_zi = block_z % CHUNK_SIZE;
-        //         let block = chunk.blocks[chunk_block_xi][chunk_block_yi][chunk_block_zi];
-        //         // ensure block is solid
-        //         if (block != BLOCK_ID_AIR && block != BLOCK_ID_WATER)
-        //         {
-        //             // block is solid, no need to check for collisions,
-        //             // we already know we are on this block
-        //             this.is_falling = false;
-        //             // ensure we are on top of the block
-        //             this.position.y = -(block_y * BLOCK_WIDTH) - BLOCK_WIDTH;
-        //             // stop movement in y direction
-        //             // this.velocity.y = 0;
-        //         }
-        //     }
-        // }
-
-        // if we were previously falling but are no longer falling,
-        // then we hit the ground
-        // if we had a lot of velocity, then take fall damage
-
         // apply gravity force if we are falling
-        if (this.is_falling)
+        if (this.is_falling && this.control_mode == PLAYER_CONTROL_MODE_NORMAL)
         {
             // update velocity by gravity
-            let acceleration_gravity = createVector (0, GRAVITY_ACCELERATION, 0);
-            // this.velocity.add (acceleration_gravity);
+            // *deltaTime gives us the amount of gravity to apply since the last frame
+            // deltaTime is in milliseconds so we divide by 1000 for seconds
+            let acceleration_gravity = createVector (0, GRAVITY_ACCELERATION*(deltaTime/1000), 0);
+            this.velocity.add (acceleration_gravity);
             // ensure we do not exceed terminal velocity from falling
             if (Math.abs (this.velocity.y) > TERMINAL_VELOCITY)
                 // match terminal velocity (and retain original signed direction)
                 this.velocity.y = Math.sign (this.velocity.y) == -1 ? -TERMINAL_VELOCITY : TERMINAL_VELOCITY;
-    
         }
 
         // apply friction dampener in X/Z directions
-        // this.velocity.mult (createVector (this.friction_factor, 1, this.friction_factor));
-        // **TEMP** this is for flying behaviour
-        this.velocity.mult (createVector (this.friction_factor, this.friction_factor, this.friction_factor));
+        if (this.control_mode == PLAYER_CONTROL_MODE_NORMAL)
+            // ignore y direction - will be handled by gravity + terminal velocity clamp
+            this.velocity.mult (createVector (this.friction_factor, 1, this.friction_factor));
+        else if (this.control_mode == PLAYER_CONTROL_MODE_FLYING || this.control_mode == PLAYER_CONTROL_MODE_NOCLIP)
+            // Flying behavior should dampen y as well
+            this.velocity.mult (createVector (this.friction_factor, this.friction_factor, this.friction_factor));
 
         // save previous position - for checking collisions between prev and next position
         let prev_position = createVector (this.position.x, this.position.y, this.position.z);
         // apply velocity
-        this.position.add (this.velocity);
+        // scaled by delta time to make movement independent of frameRate
+        this.position.add (p5.Vector.mult (this.velocity, deltaTime/1000));
 
-        // Collisions detection
-        // The sample rate of the draw loop is not frequent enough
-        // to accurately check when all collisions occur.
-        // Fast velocities can pass multiple blocks between frames.
-        // Because of this, we need to check for collisions that might
-        // have happened between the last frame and this new one
-        // ensure that the new position does not pass through a block.
-        // check X direction
-
-        // check Y direction
-        // this handles checking for falling and hitting the ground
-
-        // check Z direction
+        // Collisions detection + correction
+        if (this.control_mode != PLAYER_CONTROL_MODE_NOCLIP)
+        {
+            // check X direction
+            if (prev_position.x != this.position.x)
+            {
+                // check left
+                let [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x-this.width/2, this.position.y-BLOCK_WIDTH/2, this.position.z);
+                let block_type = world.get_block_type (block_xi, block_yi, block_zi);
+                if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                {
+                    let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
+                    let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
+                    let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                    if (is_colliding)
+                    {
+                        // console.log ("Colliding left!");
+                        // correct collision
+                        this.position.x = bxmax+this.width/2;
+                        // ensure we aren't still moving in this direction
+                        this.velocity.x = 0;
+                    }
+                }
+                // check right
+                [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x+this.width/2, this.position.y-BLOCK_WIDTH/2, this.position.z);
+                block_type = world.get_block_type (block_xi, block_yi, block_zi);
+                if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                {
+                    let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
+                    let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
+                    let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                    if (is_colliding)
+                    {
+                        // console.log ("Colliding right!");
+                        // correct collision
+                        this.position.x = bxmin-this.width/2;
+                        // ensure we aren't still moving in this direction
+                        this.velocity.x = 0;
+                    }
+                }
+            }
+    
+            // check Y direction if we moved in y direction
+            this.is_falling = true;
+            if (prev_position.y != this.position.y)
+            {
+                // check down
+                let [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x, this.position.y, this.position.z);
+                let block_type = world.get_block_type (block_xi, block_yi, block_zi);
+                if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                {
+                    let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
+                    let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
+                    let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                    if (is_colliding)
+                    {
+                        // console.log ("Colliding down!");
+                        // correct collision
+                        this.position.y = bymax;
+                        // ensure we aren't still moving in this direction
+                        this.velocity.y = 0;
+                        // since we collided with the ground, we are no longer falling
+                        this.is_falling = false;
+                    }
+                }
+                // check up
+                [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x, this.position.y-this.height, this.position.z);
+                block_type = world.get_block_type (block_xi, block_yi, block_zi);
+                if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                {
+                    let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
+                    let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
+                    let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                    if (is_colliding)
+                    {
+                        // console.log ("Colliding up!");
+                        // correct collision
+                        this.position.y = bymin+this.height+0.1; // add 0.1 extra padding due to camera
+                        // ensure we aren't still moving in this direction
+                        this.velocity.y = 0;
+                    }
+                }
+            }
+    
+            // check Z direction
+            if (prev_position.z != this.position.z)
+            {
+                // check forward
+                let [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x, this.position.y-BLOCK_WIDTH/2, this.position.z+this.width/2);
+                let block_type = world.get_block_type (block_xi, block_yi, block_zi);
+                if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                {
+                    let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
+                    let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
+                    let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                    if (is_colliding)
+                    {
+                        // console.log ("Colliding forward!");
+                        // correct collision
+                        this.position.z = bzmin-this.width/2;
+                        // ensure we aren't still moving in this direction
+                        this.velocity.z = 0;
+                    }
+                }
+                // check back
+                [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x, this.position.y-BLOCK_WIDTH/2, this.position.z-this.width/2);
+                block_type = world.get_block_type (block_xi, block_yi, block_zi);
+                if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                {
+                    let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
+                    let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
+                    let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                    if (is_colliding)
+                    {
+                        // console.log ("Colliding back!");
+                        // correct collision
+                        this.position.z = bzmax+this.width/2;
+                        // ensure we aren't still moving in this direction
+                        this.velocity.z = 0;
+                    }
+                }
+            } 
+        }
 
         // sync global camera position with player
         // camera's forward takes into account tilt
@@ -249,13 +353,13 @@ class Player
                 // point is inside a block
                 // save the block as a vector
                 current_pointed_at_block = createVector (block_x, block_y, block_z);
-                // draw the intersection point for debugging
+                // draw the intersection point as a sphere (for debugging)
                 if (is_in_debug_mode)
                 {
                     graphics.fill (255);
                     graphics.noStroke ();
                     graphics.translate (p);
-                    graphics.sphere (1);
+                    graphics.sphere (0.05);
                     graphics.translate (p5.Vector.mult (p, -1));
                 }
                 // determine which face of the block's hitbox was intersected
@@ -477,4 +581,18 @@ function calc_ray_plane_intersection (plane_normal, plane_point, line_origin, li
         return [t, (t >= 0)];
     }
     return [0, false];
+}
+
+// returns true if the two given 3D axis-aligned bounding boxes are colliding
+// false otherwise
+function AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax)
+{
+    return (
+        axmin <= bxmax &&
+        axmax >= bxmin &&
+        aymin >= bymax && // up is -y so flipped <=
+        aymax <= bymin && // up is -y so flipped >=
+        azmin <= bzmax &&
+        azmax >= bzmin
+    );
 }

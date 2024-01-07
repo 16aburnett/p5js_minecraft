@@ -94,7 +94,7 @@ function setup ()
     player = new Player ();
     graphics.perspective (radians (FOV_DEGREES), width / height, 0.1, 8000);
     // move player to the first chunk
-    player.set_position (0, -WORLD_HEIGHT*BLOCK_WIDTH, 0);
+    player.set_position (BLOCK_WIDTH/2, -WORLD_HEIGHT*BLOCK_WIDTH, BLOCK_WIDTH/2);
 
     // Initialize the world
     world = new World ();
@@ -118,36 +118,41 @@ function setup ()
 function draw ()
 {
     clear ();
-    graphics.clear ();
-    // this resets certain values modified by transforms and lights
-    // without this, the performance seems to significantly diminish over time
-    // and causes lighting to be much more intense
-    graphics.reset ();
-    // give the 3D world a nice sky-colored background
-    graphics.background (150, 200, 255);
 
-    process_key_input ();
-
-    player.update ();
-    
-    // setup light from Sun
-    graphics.ambientLight (128, 128, 128);
-    graphics.directionalLight (128, 128, 128, 0, 1, -1);
-    
-    // draw world
-    world.draw ();
-    // draw outline for pointed at block
-    if (current_pointed_at_block != null)
+    // Update game if game is not paused
+    if (!is_game_paused)
     {
-        graphics.noFill ();
-        graphics.strokeWeight (2);
-        graphics.stroke (0);
-        let [world_x, world_y, world_z] = convert_block_index_to_world_coords (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
-        graphics.translate (world_x + BLOCK_WIDTH/2, world_y-BLOCK_WIDTH/2, world_z+BLOCK_WIDTH/2);
-        graphics.box (BLOCK_WIDTH);
+        graphics.clear ();
+        // this resets certain values modified by transforms and lights
+        // without this, the performance seems to significantly diminish over time
+        // and causes lighting to be much more intense
+        graphics.reset ();
+        // give the 3D world a nice sky-colored background
+        graphics.background (150, 200, 255);
+
+        process_key_input ();
+
+        player.update ();
+        
+        // setup light from Sun
+        graphics.ambientLight (128, 128, 128);
+        graphics.directionalLight (128, 128, 128, 0, 1, -1);
+        
+        // draw world
+        world.draw ();
+        // draw outline for pointed at block
+        if (current_pointed_at_block != null)
+        {
+            graphics.noFill ();
+            graphics.strokeWeight (2);
+            graphics.stroke (0);
+            let [world_x, world_y, world_z] = convert_block_index_to_world_coords (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
+            graphics.translate (world_x + BLOCK_WIDTH/2, world_y-BLOCK_WIDTH/2, world_z+BLOCK_WIDTH/2);
+            graphics.box (BLOCK_WIDTH);
+        }
+        
+        player.draw ();
     }
-    
-    player.draw ();
 
     // draw the 3D graphics as an image to the main canvas
     image (graphics, 0, 0, windowWidth, windowHeight);
@@ -185,10 +190,6 @@ function draw ()
         textSize (32);
         text ("Click anywhere to resume", windowWidth / 2, windowHeight / 2);
         pop ();
-        // freeze game
-        // we freeze here to ensure we have the paused message
-        // before the game stops drawing
-        noLoop ();
     }
 }
 
@@ -204,7 +205,7 @@ function draw_debug_overlay ()
     textAlign (LEFT, TOP);
     fill (255);
     stroke (0);
-    strokeWeight (5);
+    strokeWeight (4);
     // load data
     let fps = frameRate ();
     prev_fps.push (fps);
@@ -216,6 +217,9 @@ function draw_debug_overlay ()
     let x = Math.floor (player.position.x * 100) / 100;
     let y = Math.floor (player.position.y * 100) / 100;
     let z = Math.floor (player.position.z * 100) / 100;
+    let vx = Math.floor (player.velocity.x * 100) / 100;
+    let vy = Math.floor (player.velocity.y * 100) / 100;
+    let vz = Math.floor (player.velocity.z * 100) / 100;
     let tilt = Math.floor (player.tilt_amount * 100) / 100;
     let pan = Math.floor (player.pan_amount * 100) / 100;
     let [block_x, block_y, block_z] = convert_world_to_block_coords (player.position.x, player.position.y, player.position.z);
@@ -238,6 +242,7 @@ function draw_debug_overlay ()
         `tilt:       ${tilt.toFixed (2)} (RAD), ${degrees (tilt).toFixed (2)} (DEG)\n` +
         `pan:        ${pan.toFixed (2)} (RAD), ${degrees (pan).toFixed (2)} (DEG)\n` +
         `XYZ:        ${x}, ${y}, ${z}\n` +
+        `velocity:   ${vx}, ${vy}, ${vz}\n` +
         `block:      ${block_x}, ${block_y}, ${block_z}\n` +
         `block_idx:  ${block_xi}, ${block_yi}, ${block_zi}\n` +
         `chunk_idx:  ${chunk_xi}, ${chunk_yi}, ${chunk_zi}\n` +
@@ -245,7 +250,8 @@ function draw_debug_overlay ()
         `block id:   ${block_type_str}\n` +
         `draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}\n` +
         `pointing at block: ${pointing_at_block}\n` +
-        `pointing at block type: ${pointing_at_block_type}`,
+        `pointing at block type: ${pointing_at_block_type}\n` +
+        `control mode: ${PLAYER_CONTROL_MODE_STR_MAP.get (player.control_mode)}`,
         0, 0);
     pop ();
 }
@@ -352,7 +358,10 @@ function process_key_input ()
 
     if (keyIsDown (KEY_SPACEBAR))
     {
-        player.jump ();
+        if (player.control_mode == PLAYER_CONTROL_MODE_NORMAL)
+            player.jump ();
+        else
+            player.move_y (-speed);
     }
 
 }
@@ -395,6 +404,11 @@ function keyPressed ()
         // if we opened the inventory, then enable the mouse
         // so that the player can interact with the inventory
         exitPointerLock ();
+    }
+    // change (cycle through) player control mode
+    if (keyCode == "P".charCodeAt (0))
+    {
+        player.control_mode = (player.control_mode + 1) % PLAYER_CONTROL_MODE_MAX;
     }
     // cycle through hotbar
     if (keyCode == '1'.charCodeAt (0))
@@ -490,7 +504,6 @@ function mousePressed ()
         is_game_paused = false;
         is_inventory_opened = false;
         requestPointerLock ();
-        loop ();
     }
 }
 
