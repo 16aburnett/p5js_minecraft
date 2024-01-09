@@ -135,7 +135,7 @@ class Chunk
                     // ignore if transparent block
                     // we will do another pass for transparent blocks
                     let block_type = this.blocks[i][j][k];
-                    let is_transparent_block = this.blocks[i][j][k] == BLOCK_ID_WATER;
+                    let is_transparent_block = map_block_id_to_block_static_data.get (block_type).is_transparent;
                     if (!is_transparent_block)
                         draw_block (i, j, k, this, block_type);
                 }
@@ -173,7 +173,7 @@ class Chunk
                 {
                     // ignore non-transparent blocks
                     let block_type = this.blocks[i][j][k];
-                    let is_transparent_block = block_type == BLOCK_ID_WATER;
+                    let is_transparent_block = map_block_id_to_block_static_data.get (block_type).is_transparent;
                     if (is_transparent_block)
                         draw_block (i, j, k, this, block_type);
                 }

@@ -20,7 +20,13 @@ const PLAYER_MODE_CREATIVE = 0;
 // - takes time to break blocks
 // - placing blocks consumes inventory resources
 const PLAYER_MODE_SURVIVAL = 1;
+const PLAYER_MODE_MAX      = 2;
+const PLAYER_MODE_STR_MAP = new Map ();
+PLAYER_MODE_STR_MAP.set (PLAYER_MODE_CREATIVE, "PLAYER_MODE_CREATIVE");
+PLAYER_MODE_STR_MAP.set (PLAYER_MODE_SURVIVAL, "PLAYER_MODE_SURVIVAL");
 let current_player_mode = PLAYER_MODE_CREATIVE;
+
+const BLOCK_THROW_SPEED = 10;
 
 let overlay_font;
 
@@ -45,6 +51,9 @@ let texture_grass_top;
 let texture_sand;
 let texture_stone;
 let texture_water;
+let texture_log_side;
+let texture_log_top;
+let texture_leaves;
 
 let is_game_paused = false;
 
@@ -62,6 +71,11 @@ let picked_up_item = null;
 let current_item_width = 50;
 let current_hotbar_index = 0;
 
+// Entities are non-block things in the world
+// that need to be updated and drawn
+// and can be added and removed
+let g_entities = [];
+
 //========================================================================
 
 function preload ()
@@ -76,6 +90,9 @@ function preload ()
     texture_sand       = loadImage ("assets/texture_sand.png");
     texture_stone      = loadImage ("assets/texture_stone.png");
     texture_water      = loadImage ("assets/texture_water.png");
+    texture_log_side   = loadImage ("assets/texture_log_side.png");
+    texture_log_top    = loadImage ("assets/texture_log_top.png");
+    texture_leaves     = loadImage ("assets/texture_leaves.png");
 
 }
 
@@ -111,6 +128,10 @@ function setup ()
     for (let element of document.getElementsByClassName ("p5Canvas"))
         element.addEventListener ("contextmenu", (e) => e.preventDefault ());
 
+    let item = new ItemEntity (new ItemStack (new Item (BLOCK_ID_LOG), 64));
+    item.set_position (0.5, -40, 0.5);
+    g_entities.push (item);
+
 }
 
 //========================================================================
@@ -129,17 +150,17 @@ function draw ()
         graphics.reset ();
         // give the 3D world a nice sky-colored background
         graphics.background (150, 200, 255);
+        
+        // setup light from Sun
+        graphics.ambientLight (80, 80, 80);
+        graphics.directionalLight (128, 128, 128, 0.5, -1, -0.5);
 
         process_key_input ();
 
         player.update ();
         
-        // setup light from Sun
-        graphics.ambientLight (128, 128, 128);
-        graphics.directionalLight (128, 128, 128, 0, 1, -1);
-        
         // draw world
-        world.draw ();
+        world.draw_solid_blocks ();
         // draw outline for pointed at block
         if (current_pointed_at_block != null)
         {
@@ -149,9 +170,19 @@ function draw ()
             let [world_x, world_y, world_z] = convert_block_index_to_world_coords (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
             graphics.translate (world_x + BLOCK_WIDTH/2, world_y-BLOCK_WIDTH/2, world_z+BLOCK_WIDTH/2);
             graphics.box (BLOCK_WIDTH);
+            graphics.translate (-(world_x + BLOCK_WIDTH/2), -(world_y-BLOCK_WIDTH/2), -(world_z+BLOCK_WIDTH/2));
         }
         
         player.draw ();
+
+        // draw all entities
+        for (let e = 0; e < g_entities.length; ++e)
+        {
+            g_entities[e].update ();
+            g_entities[e].draw ();
+        }
+
+        world.draw_transparent_blocks ();
     }
 
     // draw the 3D graphics as an image to the main canvas
@@ -251,7 +282,9 @@ function draw_debug_overlay ()
         `draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}\n` +
         `pointing at block: ${pointing_at_block}\n` +
         `pointing at block type: ${pointing_at_block_type}\n` +
-        `control mode: ${PLAYER_CONTROL_MODE_STR_MAP.get (player.control_mode)}`,
+        `control mode: ${PLAYER_CONTROL_MODE_STR_MAP.get (player.control_mode)}\n` +
+        `player mode:  ${PLAYER_MODE_STR_MAP.get (current_player_mode)}\n` +
+        `num entities: ${g_entities.length}`,
         0, 0);
     pop ();
 }
@@ -318,6 +351,12 @@ function process_key_input ()
     {
         player.pan (-speed);
     }
+    // mouse movement
+    if (!is_inventory_opened)
+    {
+        player.tilt (movedY * MOUSE_SENSITIVITY);
+        player.pan (movedX * MOUSE_SENSITIVITY);
+    }
 
     // camera movement
     speed = CAMERA_MOVEMENT_SPEED;
@@ -345,15 +384,11 @@ function process_key_input ()
     {
         player.move_x (-speed);
     }
-    // move up
-    if (keyIsDown (KEY_Q))
-    {
-        player.move_y (-speed);
-    }
     // move down
     if (keyIsDown (KEY_Z))
     {
-        player.move_y (speed);
+        if (player.control_mode == PLAYER_CONTROL_MODE_FLYING || player.control_mode == PLAYER_CONTROL_MODE_NOCLIP)
+            player.move_y (speed);
     }
 
     if (keyIsDown (KEY_SPACEBAR))
@@ -410,6 +445,11 @@ function keyPressed ()
     {
         player.control_mode = (player.control_mode + 1) % PLAYER_CONTROL_MODE_MAX;
     }
+    // change (cycle through) player mode
+    if (keyCode == "L".charCodeAt (0))
+    {
+        current_player_mode = (current_player_mode + 1) % PLAYER_MODE_MAX;
+    }
     // cycle through hotbar
     if (keyCode == '1'.charCodeAt (0))
         current_hotbar_index = 0;
@@ -429,6 +469,56 @@ function keyPressed ()
         current_hotbar_index = 7;
     else if (keyCode == '9'.charCodeAt (0))
         current_hotbar_index = 8;
+    
+    // drop one item from hand
+    if (keyCode == KEY_Q && !keyIsDown (SHIFT) && !is_inventory_opened)
+    {
+        // ensure there is an item to drop
+        if (player.hotbar.slots[current_hotbar_index] != null)
+        {
+            // create the item that we want to drop
+            let item_to_drop = new ItemStack (new Item (player.hotbar.slots[current_hotbar_index].get_item_type ()), 1);
+            // decrement the item stack in the player's hand
+            player.hotbar.slots[current_hotbar_index].amount--;
+            // remove item stack if no more items
+            if (player.hotbar.slots[current_hotbar_index].amount <= 0)
+                player.hotbar.slots[current_hotbar_index] = null;
+            // turn it into an Entity
+            let item_to_drop_entity = new ItemEntity (item_to_drop);
+            // give it some velocity in the direction that we are facing
+            // specifically throw it from the camera
+            item_to_drop_entity.set_position (player.camera.eyeX, player.camera.eyeY, player.camera.eyeZ);
+            let camera_forward = createVector (cos (player.pan_amount), tan (player.tilt_amount), sin (player.pan_amount));
+            camera_forward.normalize ();
+            item_to_drop_entity.add_velocity (camera_forward.x*BLOCK_THROW_SPEED, camera_forward.y*BLOCK_THROW_SPEED, camera_forward.z*BLOCK_THROW_SPEED);
+            // add entity to list so it will be updated and drawn
+            g_entities.push (item_to_drop_entity);
+        }
+    }
+    // drop whole stack from hand
+    if (keyCode == KEY_Q && keyIsDown (SHIFT) && !is_inventory_opened)
+    {
+        // ensure there is an item to drop
+        if (player.hotbar.slots[current_hotbar_index] != null)
+        {
+            // get stack to drop
+            let item_stack_to_drop = player.hotbar.slots[current_hotbar_index];
+            // remove stack
+            player.hotbar.slots[current_hotbar_index] = null;
+            // turn it into an Entity
+            let item_stack_to_drop_entity = new ItemEntity (item_stack_to_drop);
+            // give it some velocity in the direction that we are facing
+            // specifically throw it from the camera
+            item_stack_to_drop_entity.set_position (player.camera.eyeX, player.camera.eyeY, player.camera.eyeZ);
+            let camera_forward = createVector (cos (player.pan_amount), tan (player.tilt_amount), sin (player.pan_amount));
+            camera_forward.normalize ();
+            let throw_speed = 10;
+            item_stack_to_drop_entity.add_velocity (camera_forward.x*BLOCK_THROW_SPEED, camera_forward.y*BLOCK_THROW_SPEED, camera_forward.z*BLOCK_THROW_SPEED);
+            // add entity to list so it will be updated and drawn
+            g_entities.push (item_stack_to_drop_entity);
+        }
+    }
+
 }
 
 //========================================================================
@@ -451,7 +541,6 @@ function mousePressed ()
             // resume the game (if it wasnt already running)
             is_game_paused = false;
             requestPointerLock ();
-            loop ();
             return;
         }
     }
@@ -462,8 +551,22 @@ function mousePressed ()
         {
             if (current_pointed_at_block != null)
             {
+                let block_type = world.get_block_type (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
                 // delete the block
                 world.delete_block_at (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
+                // drop item entity from the block
+                let block_item_entity = new ItemEntity (new ItemStack (new Item (block_type), 1));
+                // move entity to block's position
+                block_item_entity.set_position (current_pointed_at_block.x * BLOCK_WIDTH, -current_pointed_at_block.y * BLOCK_WIDTH - BLOCK_WIDTH/2, current_pointed_at_block.z * BLOCK_WIDTH);
+                // send block in a random direction
+                let dir = p5.Vector.random3D ();
+                let vel = p5.Vector.mult (dir, BLOCK_THROW_SPEED/2);
+                block_item_entity.add_velocity (vel.x, vel.y, vel.z);
+                // Broken blocks should be able to be picked up instantly
+                // so clear delay
+                block_item_entity.collect_delay = 0.0;
+                // add entity to global list
+                g_entities.push (block_item_entity);
             }
         }
         // place block or use item

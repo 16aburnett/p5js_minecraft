@@ -4,51 +4,7 @@
 //========================================================================
 // Globals
 
-const ITEM_STACK_AMT_MAX = 64;
-
 //========================================================================
-
-// A useable item
-class Item
-{
-    constructor (item_id)
-    {
-        this.item_id = item_id;
-        // for tools that depleat over uses
-        this.usages = 0;
-    }
-
-    // draws the item's icon
-    draw (x, y, width)
-    {
-        let icon = map_block_id_to_block_static_data.get (this.item_id).texture_img_data[TEXTURE_TOP];
-        image (icon, x, y, width, width);
-    }
-}
-
-// For saving space, similar items can be stacked together in one inventory slot.
-class ItemStack
-{
-    constructor (item, amount)
-    {
-        this.item = item;
-        this.amount = amount;
-        this.max_amount = 64;
-    }
-
-    draw (x, y, width)
-    {
-        // draw item icon
-        this.item.draw (x, y, width);
-        // draw stack count
-        fill (255);
-        stroke (0);
-        strokeWeight (5);
-        textSize (width/2);
-        textAlign (RIGHT, BOTTOM);
-        text (this.amount.toString (), x + width, y + width);
-    }
-}
 
 // An inventory is an interactable container that stores items
 class Inventory
@@ -70,7 +26,37 @@ class Inventory
     // either merging into existing item stacks or added to the end of the inventory
     add_item (incoming_item_stack)
     {
-        
+        for (let i = 0; i < this.slots.length; ++i)
+        {
+            // empty slot
+            if (this.slots[i] == null)
+            {
+                // just add to slot
+                this.slots[i] = incoming_item_stack;
+                // no leftovers to return
+                return null;
+            }
+            // same item type - coalesce stacks
+            if (this.slots[i].item.item_id == incoming_item_stack.item.item_id)
+            {
+                let max_count = map_block_id_to_block_static_data.get (this.slots[i].item.item_id).stack_max_size;
+                this.slots[i].amount += incoming_item_stack.amount;
+                // ensure we didnt exceed max count
+                if (this.slots[i].amount > max_count)
+                {
+                    // save leftover amount and move on to more slots
+                    incoming_item_stack.amount = this.slots[i].amount - max_count;
+                    this.slots[i].amount = max_count;
+                }
+                else
+                {
+                    // didnt exceed - nothing remaining to add
+                    incoming_item_stack = null;
+                    return null;
+                }
+            }
+        }
+        return incoming_item_stack;
     }
 
     // adds item at index and returns overflow or the previously stored item

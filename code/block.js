@@ -16,14 +16,18 @@ const BLOCK_ID_DIRT       = 2;
 const BLOCK_ID_STONE      = 3;
 const BLOCK_ID_WATER      = 4;
 const BLOCK_ID_SAND       = 5;
+const BLOCK_ID_LOG        = 6;
+const BLOCK_ID_LEAVES     = 7;
 const BLOCK_ID_STR_MAP = new Map ();
-BLOCK_ID_STR_MAP.set (BLOCK_ID_NONE , "BLOCK_ID_NONE");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_AIR  , "BLOCK_ID_AIR");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_GRASS, "BLOCK_ID_GRASS");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_DIRT , "BLOCK_ID_DIRT");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_STONE, "BLOCK_ID_STONE");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_WATER, "BLOCK_ID_WATER");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_SAND , "BLOCK_ID_SAND");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_NONE  , "BLOCK_ID_NONE");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_AIR   , "BLOCK_ID_AIR");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_GRASS , "BLOCK_ID_GRASS");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_DIRT  , "BLOCK_ID_DIRT");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_STONE , "BLOCK_ID_STONE");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_WATER , "BLOCK_ID_WATER");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_SAND  , "BLOCK_ID_SAND");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_LOG   , "BLOCK_ID_LOG");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_LEAVES, "BLOCK_ID_LEAVES");
 
 const TEXTURE_TOP    = 0;
 const TEXTURE_SIDE   = 1;
@@ -58,13 +62,16 @@ let map_block_id_to_block_static_data;
 // this represents 
 class BlockStaticData
 {
-    constructor (block_id, texture_atlas_data, texture_img_data, fill_color, stack_max_size)
+    constructor (block_id, texture_atlas_data, texture_img_data, fill_color, stack_max_size, is_transparent)
     {
         this.block_id = block_id;
         this.texture_atlas_data = texture_atlas_data;
         this.texture_img_data = texture_img_data;
         this.fill_color = fill_color;
         this.stack_max_size = stack_max_size;
+        // whether the texture has transparency or not
+        // this is true for water or leaves
+        this.is_transparent = is_transparent;
     }
 }
 
@@ -93,7 +100,8 @@ function block_setup ()
             texture_null  // bottom
         ], 
         [100, 150, 255, 100],
-        stack_max_size=64)
+        stack_max_size=64,
+        is_transparent=true)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_GRASS, new BlockStaticData (
         BLOCK_ID_GRASS, 
@@ -108,7 +116,8 @@ function block_setup ()
             texture_dirt  // bottom
         ], 
         "lime",
-        stack_max_size=64)
+        stack_max_size=64,
+        is_transparent=false)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_DIRT, new BlockStaticData (
         BLOCK_ID_DIRT, 
@@ -123,7 +132,8 @@ function block_setup ()
             texture_dirt  // bottom
         ], 
         "#964B00",
-        stack_max_size=64)
+        stack_max_size=64,
+        is_transparent=false)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_STONE, new BlockStaticData (
         BLOCK_ID_STONE, 
@@ -138,7 +148,8 @@ function block_setup ()
             texture_stone  // bottom
         ], 
         "gray",
-        stack_max_size=64)
+        stack_max_size=64,
+        is_transparent=false)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_WATER, new BlockStaticData (
         BLOCK_ID_WATER, 
@@ -153,7 +164,8 @@ function block_setup ()
             texture_water  // bottom
         ], 
         [50, 100, 255, 150],
-        stack_max_size=64)
+        stack_max_size=64,
+        is_transparent=true)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_SAND, new BlockStaticData (
         BLOCK_ID_SAND, 
@@ -168,7 +180,40 @@ function block_setup ()
             texture_sand  // bottom
         ], 
         "#C2B280",
-        stack_max_size=16)
+        stack_max_size=64,
+        is_transparent=false)
+    );
+    map_block_id_to_block_static_data.set (BLOCK_ID_LOG, new BlockStaticData (
+        BLOCK_ID_LOG, 
+        [ // texture atlas positions
+            [8, 0], // top
+            [7, 0], // sides
+            [8, 0]  // bottom
+        ], 
+        [ // individual texture images
+            texture_log_top, // top
+            texture_log_side, // sides
+            texture_log_top  // bottom
+        ], 
+        "#694b37",
+        stack_max_size=64,
+        is_transparent=false)
+    );
+    map_block_id_to_block_static_data.set (BLOCK_ID_LEAVES, new BlockStaticData (
+        BLOCK_ID_LEAVES, 
+        [ // texture atlas positions
+            [9, 0], // top
+            [9, 0], // sides
+            [9, 0]  // bottom
+        ], 
+        [ // individual texture images
+            texture_leaves, // top
+            texture_leaves, // sides
+            texture_leaves  // bottom
+        ], 
+        "#88ff22",
+        stack_max_size=64,
+        is_transparent=true)
     );
 
 }
@@ -190,6 +235,9 @@ function draw_block (x, y, z, chunk, block_type)
     let world_x = (chunk.xi * CHUNK_SIZE * BLOCK_WIDTH) + x * BLOCK_WIDTH;
     let world_y = -((chunk.yi * CHUNK_SIZE * BLOCK_WIDTH) + y * BLOCK_WIDTH); // y axis is reversed
     let world_z = (chunk.zi * CHUNK_SIZE * BLOCK_WIDTH) + z * BLOCK_WIDTH;
+    let block_xi = chunk.xi * CHUNK_SIZE + x;
+    let block_yi = chunk.yi * CHUNK_SIZE + y;
+    let block_zi = chunk.zi * CHUNK_SIZE + z;
 
     // enable wireframe
     if (current_draw_style == DRAW_STYLE_WIREFRAME || current_draw_style == DRAW_STYLE_FILL_WIREFRAME)
@@ -210,21 +258,24 @@ function draw_block (x, y, z, chunk, block_type)
     // only draw if the next block is transparent and the camera is not behind the plane
     let is_camera_infront_of_plane = true;
     if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeZ >= world_z;
-    let is_this_block_water = this_block_type == BLOCK_ID_WATER;
-    let is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi},${chunk.zi+1}`);
-    let is_next_block_in_this_chunk = 0 <= z+1 && z+1 < CHUNK_SIZE;
-    let is_next_block_air = 
-        (is_next_block_in_this_chunk && chunk.blocks[x][y][z+1] == BLOCK_ID_AIR) || 
-        (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
-        /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_AIR);
-    let is_next_block_water = 
-        // ensure current block is not water
-        !is_this_block_water &&
-        ((is_next_block_in_this_chunk && chunk.blocks[x][y][z+1] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_WATER));
-    let is_next_block_transparent = is_next_block_air || is_next_block_water;
-    if (is_camera_infront_of_plane && is_next_block_transparent)
+    // let is_this_block_water = this_block_type == BLOCK_ID_WATER;
+    // let is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi},${chunk.zi+1}`);
+    // let is_next_block_in_this_chunk = 0 <= z+1 && z+1 < CHUNK_SIZE;
+    // let is_next_block_air = 
+    //     (is_next_block_in_this_chunk && chunk.blocks[x][y][z+1] == BLOCK_ID_AIR) || 
+    //     (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
+    //     /*need to check first block in next chunk*/
+    //     (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_AIR);
+    // let is_next_block_water = 
+    //     // ensure current block is not water
+    //     !is_this_block_water &&
+    //     ((is_next_block_in_this_chunk && chunk.blocks[x][y][z+1] == BLOCK_ID_WATER) ||
+    //     (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_WATER));
+    // let is_next_block_transparent = is_next_block_air || is_next_block_water;
+    let next_block = world.get_block_type (block_xi, block_yi, block_zi+1);
+    is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
+    let are_both_blocks_water = this_block_type == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
+    if (is_camera_infront_of_plane && is_next_block_transparent && !are_both_blocks_water)
     {
         // move to plane's position
         // planes are draw from the center
@@ -244,21 +295,24 @@ function draw_block (x, y, z, chunk, block_type)
     // only draw if the next block is transparent and the camera is not behind the plane
     is_camera_infront_of_plane = true;
     if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeZ <= world_z;
-    is_this_block_water = this_block_type == BLOCK_ID_WATER;
-    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi},${chunk.zi-1}`);
-    is_next_block_in_this_chunk = 0 <= z-1 && z-1 < CHUNK_SIZE;
-    is_next_block_air = 
-        (is_next_block_in_this_chunk && chunk.blocks[x][y][z-1] == BLOCK_ID_AIR) || 
-        (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
-        /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_AIR);
-    is_next_block_water = 
-        // ensure current block is not water
-        !is_this_block_water &&
-        ((is_next_block_in_this_chunk && chunk.blocks[x][y][z-1] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_WATER));
-    is_next_block_transparent = is_next_block_air || is_next_block_water;
-    if (is_camera_infront_of_plane && is_next_block_transparent)
+    // is_this_block_water = this_block_type == BLOCK_ID_WATER;
+    // is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi},${chunk.zi-1}`);
+    // is_next_block_in_this_chunk = 0 <= z-1 && z-1 < CHUNK_SIZE;
+    // is_next_block_air = 
+    //     (is_next_block_in_this_chunk && chunk.blocks[x][y][z-1] == BLOCK_ID_AIR) || 
+    //     (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
+    //     /*need to check first block in next chunk*/
+    //     (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_AIR);
+    // is_next_block_water = 
+    //     // ensure current block is not water
+    //     !is_this_block_water &&
+    //     ((is_next_block_in_this_chunk && chunk.blocks[x][y][z-1] == BLOCK_ID_WATER) ||
+    //     (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_WATER));
+    // is_next_block_transparent = is_next_block_air || is_next_block_water;
+    next_block = world.get_block_type (block_xi, block_yi, block_zi-1);
+    is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
+    are_both_blocks_water = this_block_type == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
+    if (is_camera_infront_of_plane && is_next_block_transparent && !are_both_blocks_water)
     {
         // move to plane's position
         // planes are draw from the center
@@ -281,21 +335,24 @@ function draw_block (x, y, z, chunk, block_type)
     // only draw if the next block is transparent and the camera is not behind the plane
     is_camera_infront_of_plane = true;
     if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeX <= world_x;
-    is_this_block_water = this_block_type == BLOCK_ID_WATER;
-    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi-1},${chunk.yi},${chunk.zi}`);
-    is_next_block_in_this_chunk = 0 <= x-1 && x-1 < CHUNK_SIZE;
-    is_next_block_air = 
-        (is_next_block_in_this_chunk && chunk.blocks[x-1][y][z] == BLOCK_ID_AIR) || 
-        (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
-        /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi-1},${chunk.yi},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_AIR);
-    is_next_block_water = 
-        // ensure current block is not water
-        !is_this_block_water &&
-        ((is_next_block_in_this_chunk && chunk.blocks[x-1][y][z] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi-1},${chunk.yi},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_WATER));
-    is_next_block_transparent = is_next_block_air || is_next_block_water;
-    if (is_camera_infront_of_plane && is_next_block_transparent)
+    // is_this_block_water = this_block_type == BLOCK_ID_WATER;
+    // is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi-1},${chunk.yi},${chunk.zi}`);
+    // is_next_block_in_this_chunk = 0 <= x-1 && x-1 < CHUNK_SIZE;
+    // is_next_block_air = 
+    //     (is_next_block_in_this_chunk && chunk.blocks[x-1][y][z] == BLOCK_ID_AIR) || 
+    //     (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
+    //     /*need to check first block in next chunk*/
+    //     (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi-1},${chunk.yi},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_AIR);
+    // is_next_block_water = 
+    //     // ensure current block is not water
+    //     !is_this_block_water &&
+    //     ((is_next_block_in_this_chunk && chunk.blocks[x-1][y][z] == BLOCK_ID_WATER) ||
+    //     (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi-1},${chunk.yi},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_WATER));
+    // is_next_block_transparent = is_next_block_air || is_next_block_water;
+    next_block = world.get_block_type (block_xi-1, block_yi, block_zi);
+    is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
+    are_both_blocks_water = this_block_type == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
+    if (is_camera_infront_of_plane && is_next_block_transparent && !are_both_blocks_water)
     {
         // move to plane's position
         // plane's are draw from the center
@@ -316,21 +373,24 @@ function draw_block (x, y, z, chunk, block_type)
     // only draw if the next block is transparent and the camera is not behind the plane
     is_camera_infront_of_plane = true;
     if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeX >= world_x;
-    is_this_block_water = this_block_type == BLOCK_ID_WATER;
-    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi+1},${chunk.yi},${chunk.zi}`);
-    is_next_block_in_this_chunk = 0 <= x+1 && x+1 < CHUNK_SIZE;
-    is_next_block_air = 
-        (is_next_block_in_this_chunk && chunk.blocks[x+1][y][z] == BLOCK_ID_AIR) || 
-        (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
-        /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi+1},${chunk.yi},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_AIR);
-    is_next_block_water = 
-        // ensure current block is not water
-        !is_this_block_water &&
-        ((is_next_block_in_this_chunk && chunk.blocks[x+1][y][z] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi+1},${chunk.yi},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_WATER));
-    is_next_block_transparent = is_next_block_air || is_next_block_water;
-    if (is_camera_infront_of_plane && is_next_block_transparent)
+    // is_this_block_water = this_block_type == BLOCK_ID_WATER;
+    // is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi+1},${chunk.yi},${chunk.zi}`);
+    // is_next_block_in_this_chunk = 0 <= x+1 && x+1 < CHUNK_SIZE;
+    // is_next_block_air = 
+    //     (is_next_block_in_this_chunk && chunk.blocks[x+1][y][z] == BLOCK_ID_AIR) || 
+    //     (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
+    //     /*need to check first block in next chunk*/
+    //     (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi+1},${chunk.yi},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_AIR);
+    // is_next_block_water = 
+    //     // ensure current block is not water
+    //     !is_this_block_water &&
+    //     ((is_next_block_in_this_chunk && chunk.blocks[x+1][y][z] == BLOCK_ID_WATER) ||
+    //     (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi+1},${chunk.yi},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_WATER));
+    // is_next_block_transparent = is_next_block_air || is_next_block_water;
+    next_block = world.get_block_type (block_xi+1, block_yi, block_zi);
+    is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
+    are_both_blocks_water = this_block_type == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
+    if (is_camera_infront_of_plane && is_next_block_transparent && !are_both_blocks_water)
     {
         // move to plane's position
         // plane's are draw from the center
@@ -352,21 +412,24 @@ function draw_block (x, y, z, chunk, block_type)
     // only draw if the next block is transparent and the camera is not behind the plane
     is_camera_infront_of_plane = true;
     if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeY <= world_y;
-    is_this_block_water = this_block_type == BLOCK_ID_WATER;
-    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi+1},${chunk.zi}`);
-    is_next_block_in_this_chunk = 0 <= y+1 && y+1 < CHUNK_SIZE;
-    is_next_block_air = 
-        (is_next_block_in_this_chunk && chunk.blocks[x][y+1][z] == BLOCK_ID_AIR) || 
-        (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
-        /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi+1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_AIR);
-    is_next_block_water = 
-        // ensure current block is not water
-        !is_this_block_water &&
-        ((is_next_block_in_this_chunk && chunk.blocks[x][y+1][z] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi+1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_WATER));
-    is_next_block_transparent = is_next_block_air || is_next_block_water;
-    if (is_camera_infront_of_plane && is_next_block_transparent)
+    // is_this_block_water = this_block_type == BLOCK_ID_WATER;
+    // is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi+1},${chunk.zi}`);
+    // is_next_block_in_this_chunk = 0 <= y+1 && y+1 < CHUNK_SIZE;
+    // is_next_block_air = 
+    //     (is_next_block_in_this_chunk && chunk.blocks[x][y+1][z] == BLOCK_ID_AIR) || 
+    //     (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
+    //     /*need to check first block in next chunk*/
+    //     (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi+1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_AIR);
+    // is_next_block_water = 
+    //     // ensure current block is not water
+    //     !is_this_block_water &&
+    //     ((is_next_block_in_this_chunk && chunk.blocks[x][y+1][z] == BLOCK_ID_WATER) ||
+    //     (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi+1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_WATER));
+    // is_next_block_transparent = is_next_block_air || is_next_block_water;
+    next_block = world.get_block_type (block_xi, block_yi+1, block_zi);
+    is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
+    are_both_blocks_water = this_block_type == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
+    if (is_camera_infront_of_plane && is_next_block_transparent && !are_both_blocks_water)
     {
         // move to plane's position
         // plane's are draw from the center
@@ -387,21 +450,24 @@ function draw_block (x, y, z, chunk, block_type)
     // only draw if the next block is transparent and the camera is not behind the plane
     is_camera_infront_of_plane = true;
     if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeY >= world_y;
-    is_this_block_water = this_block_type == BLOCK_ID_WATER;
-    is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi-1},${chunk.zi}`);
-    is_next_block_in_this_chunk = 0 <= y-1 && y-1 < CHUNK_SIZE;
-    is_next_block_air = 
-        (is_next_block_in_this_chunk && chunk.blocks[x][y-1][z] == BLOCK_ID_AIR) || 
-        (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
-        /*need to check first block in next chunk*/
-        (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi-1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_AIR);
-    is_next_block_water = 
-        // ensure current block is not water
-        !is_this_block_water &&
-        ((is_next_block_in_this_chunk && chunk.blocks[x][y-1][z] == BLOCK_ID_WATER) ||
-        (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi-1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_WATER));
-    is_next_block_transparent = is_next_block_air || is_next_block_water;
-    if (is_camera_infront_of_plane && is_next_block_transparent)
+    // is_this_block_water = this_block_type == BLOCK_ID_WATER;
+    // is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi-1},${chunk.zi}`);
+    // is_next_block_in_this_chunk = 0 <= y-1 && y-1 < CHUNK_SIZE;
+    // is_next_block_air = 
+    //     (is_next_block_in_this_chunk && chunk.blocks[x][y-1][z] == BLOCK_ID_AIR) || 
+    //     (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
+    //     /*need to check first block in next chunk*/
+    //     (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi-1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_AIR);
+    // is_next_block_water = 
+    //     // ensure current block is not water
+    //     !is_this_block_water &&
+    //     ((is_next_block_in_this_chunk && chunk.blocks[x][y-1][z] == BLOCK_ID_WATER) ||
+    //     (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi-1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_WATER));
+    // is_next_block_transparent = is_next_block_air || is_next_block_water;
+    next_block = world.get_block_type (block_xi, block_yi-1, block_zi);
+    is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
+    are_both_blocks_water = this_block_type == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
+    if (is_camera_infront_of_plane && is_next_block_transparent && !are_both_blocks_water)
     {
         // move to plane's position
         // plane's are draw from the center

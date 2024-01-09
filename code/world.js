@@ -143,7 +143,7 @@ class World
         
     }
 
-    draw ()
+    draw_solid_blocks ()
     {
         // draw chunks
         // we need to split up the solid blocks and transparent blocks
@@ -154,6 +154,10 @@ class World
         // draw solid blocks of each chunk
         for (let chunk of this.chunk_map.values ())
             chunk.draw_solid_blocks ();
+    }
+
+    draw_transparent_blocks ()
+    {
         // draw transparent blocks of each chunk
         for (let chunk of this.chunk_map.values ())
             chunk.draw_transparent_blocks ();

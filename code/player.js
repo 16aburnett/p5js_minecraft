@@ -12,8 +12,8 @@ const PLAYER_CONTROL_MODE_FLYING = 1;
 const PLAYER_CONTROL_MODE_NOCLIP = 2;
 const PLAYER_CONTROL_MODE_MAX    = 3;
 const PLAYER_CONTROL_MODE_STR_MAP = new Map ();
-PLAYER_CONTROL_MODE_STR_MAP.set (PLAYER_CONTROL_MODE_NORMAL , "PLAYER_CONTROL_MODE_NORMAL");
-PLAYER_CONTROL_MODE_STR_MAP.set (PLAYER_CONTROL_MODE_FLYING  , "PLAYER_CONTROL_MODE_FLYING");
+PLAYER_CONTROL_MODE_STR_MAP.set (PLAYER_CONTROL_MODE_NORMAL, "PLAYER_CONTROL_MODE_NORMAL");
+PLAYER_CONTROL_MODE_STR_MAP.set (PLAYER_CONTROL_MODE_FLYING, "PLAYER_CONTROL_MODE_FLYING");
 PLAYER_CONTROL_MODE_STR_MAP.set (PLAYER_CONTROL_MODE_NOCLIP, "PLAYER_CONTROL_MODE_NOCLIP");
 
 const GRAVITY_ACCELERATION = 20;
@@ -25,6 +25,7 @@ const CAMERA_LOOK_SPEED = 0.002;
 const CAMERA_RUN_LOOK_SPEED = CAMERA_LOOK_SPEED*2;
 const CAMERA_MOVEMENT_SPEED = 0.1;
 const CAMERA_RUN_MOVEMENT_SPEED = CAMERA_MOVEMENT_SPEED*4;
+const MOUSE_SENSITIVITY = 0.01;
 
 //========================================================================
 
@@ -73,6 +74,8 @@ class Player
         this.hotbar.add_item_at (0, 2, new ItemStack (new Item (BLOCK_ID_STONE), 64));
         this.hotbar.add_item_at (0, 3, new ItemStack (new Item (BLOCK_ID_SAND), 64));
         this.hotbar.add_item_at (0, 4, new ItemStack (new Item (BLOCK_ID_WATER), 64));
+        this.hotbar.add_item_at (0, 5, new ItemStack (new Item (BLOCK_ID_LOG), 64));
+        this.hotbar.add_item_at (0, 6, new ItemStack (new Item (BLOCK_ID_LEAVES), 64));
         
         this.control_mode = PLAYER_CONTROL_MODE_NORMAL;
     }
@@ -318,6 +321,41 @@ class Player
         // raycasting V1
         // determine what block the player is pointing at (if any)
         this.ray_casting_v1 (camera_forward, createVector (this.camera.eyeX, this.camera.eyeY, this.camera.eyeZ));
+
+        // collect items
+        for (let e = g_entities.length-1; e >= 0; --e)
+        {
+            let entity = g_entities[e];
+            // we only want to collect items
+            // and ignore if item has a collect delay
+            if (entity instanceof ItemEntity && entity.collect_delay <= 0.0)
+            {
+                // check if we are colliding with the entity
+                let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
+                let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = entity.get_AABB ();
+                let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                if (is_colliding)
+                {
+                    // collect the item - if we have space
+                    // inventory will spit back the item stack if there is not enough space
+                    // first try to add to hotbar
+                    let remaining_item_stack = this.hotbar.add_item (entity.item_stack);
+                    // next try to add to inventory
+                    if (remaining_item_stack != null)
+                        remaining_item_stack = this.inventory.add_item (remaining_item_stack);
+                    // spit back out remaining items if we still have some
+                    if (remaining_item_stack != null)
+                    {
+                        entity.item_stack = remaining_item_stack;
+                    }
+                    // otherwise, we picked up the whole item stack so remove the entity
+                    else
+                    {
+                        g_entities.splice (e, 1);
+                    }
+                }
+            }
+        }
     }
 
     // sends out a ray and samples multiple points along that line
@@ -358,9 +396,9 @@ class Player
                 {
                     graphics.fill (255);
                     graphics.noStroke ();
-                    graphics.translate (p);
+                    graphics.translate (p.x, p.y, p.z);
                     graphics.sphere (0.05);
-                    graphics.translate (p5.Vector.mult (p, -1));
+                    graphics.translate (-p.x, -p.y, -p.z);
                 }
                 // determine which face of the block's hitbox was intersected
                 // front

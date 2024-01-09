@@ -80,6 +80,14 @@ this is good material
         - flew into the middle of the chunks and get 60fps 
             due to backface culling - aka the geometry is the bottleneck (not the code)
 
+# Draw order issue
+- it seems like transparent leaves blocks are harder than water...
+- we may need to figure out how to fix the draw order issue
+- potential idea
+    1. find block closest to player
+    2. BFS draw blocks from that point
+    - or well we would actually need to draw further away blocks first bc draw order
+- or maybe there is a way around this? bc this only happens from transparent textures?
 
 # Inventory
 - press+release puts item into mouse
@@ -96,4 +104,23 @@ if collided, reset the position to right before the collided block
     but retain movement in other directions
 if not, move freely
 
+- lerp collision detection over time similarly to raycast to check for collisions between prev and next pos
+
 - collisions can be detected in the 3 directions separately
+
+
+# Item Entities
+- [] only draw item entities with a certain range of the player
+- [] coalesce nearby item stacks to reduce overall items
+- [] make larger AABB for collecting entities 
+    - or implement items being gravitated towards player
+    - and collect when item gets to player
+- [] entity void killer
+    - for cleaning up entities that fell into the void
+    - just check if entity is below void Y level and delete if so - easy
+
+# Falling blocks
+- shouldnt be too difficult
+- if sand is above air
+- turn sand into sand entity that falls with gravity
+- allow it to fall until it gets to the position above a solid block
