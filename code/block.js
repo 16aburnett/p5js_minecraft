@@ -57,6 +57,10 @@ const TEXTURE_WIDTH = 16;
 // dynamic block information will need to be stored elsewhere
 let map_block_id_to_block_static_data;
 
+const TOOL_PICKAXE = 0;
+const TOOL_SHOVEL  = 1;
+const TOOL_AXE     = 2;
+
 //========================================================================
 
 // this represents 
@@ -72,6 +76,9 @@ class BlockStaticData
         // whether the texture has transparency or not
         // this is true for water or leaves
         this.is_transparent = is_transparent;
+        this.mine_duration = 2;
+        // the type of tool that can break this block
+        this.preferred_tool = TOOL_PICKAXE;
     }
 }
 

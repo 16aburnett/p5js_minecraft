@@ -95,6 +95,7 @@ this is good material
 - right click - takes half
 - right click with something in hand drops one of that item
 - shift + click automatically sends to the top inventory
+- hover tooltips
 
 # Collision detection
 take the previous frame's position
@@ -124,3 +125,15 @@ if not, move freely
 - if sand is above air
 - turn sand into sand entity that falls with gravity
 - allow it to fall until it gets to the position above a solid block
+
+# Texture scaling
+- since minecraft textures are basically pixel art, we can have 16x16 textures
+- but it seems like P5js scales up the images using some bilinear function 
+which causes the textures to be very blurry
+- i found this site which we can use to upscale the images w/o blur
+    - https://lospec.com/pixel-art-scaler/
+    - 16x16 -> 1024x1024 seems to be fine (64x)
+    - only 6 KB
+    - we can still store the 16x16 images for editing, and use the 64x versions in game
+- unfortunately, i couldnt get texture atlases working reliably
+    - i got it working, but it is SO. SLOW.

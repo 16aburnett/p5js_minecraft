@@ -24,7 +24,7 @@ const PLAYER_MODE_MAX      = 2;
 const PLAYER_MODE_STR_MAP = new Map ();
 PLAYER_MODE_STR_MAP.set (PLAYER_MODE_CREATIVE, "PLAYER_MODE_CREATIVE");
 PLAYER_MODE_STR_MAP.set (PLAYER_MODE_SURVIVAL, "PLAYER_MODE_SURVIVAL");
-let current_player_mode = PLAYER_MODE_CREATIVE;
+let current_player_mode = PLAYER_MODE_SURVIVAL;
 
 const BLOCK_THROW_SPEED = 10;
 
@@ -54,6 +54,14 @@ let texture_water;
 let texture_log_side;
 let texture_log_top;
 let texture_leaves;
+let texture_block_break_0;
+let texture_block_break_1;
+let texture_block_break_2;
+let texture_block_break_3;
+let texture_block_break_4;
+let texture_block_break_5;
+let texture_block_break_6;
+let texture_block_break_7;
 
 let is_game_paused = false;
 
@@ -76,6 +84,12 @@ let current_hotbar_index = 0;
 // and can be added and removed
 let g_entities = [];
 
+// this is the block that the player is currently mining
+let g_block_being_mined = null;
+let g_block_being_mined_delay = 0;
+// Creative mode only allows 1 block to break per click
+let g_waiting_for_mouse_release = false;
+
 //========================================================================
 
 function preload ()
@@ -83,16 +97,24 @@ function preload ()
     overlay_font = loadFont ("assets/fonts/Inconsolata/Inconsolata.otf");
     texture_atlas = loadImage ("assets/block_texture_atlas.png");
 
-    texture_null       = loadImage ("assets/texture_null.png");
-    texture_dirt       = loadImage ("assets/texture_dirt.png");
-    texture_grass_side = loadImage ("assets/texture_grass_side.png");
-    texture_grass_top  = loadImage ("assets/texture_grass_top.png");
-    texture_sand       = loadImage ("assets/texture_sand.png");
-    texture_stone      = loadImage ("assets/texture_stone.png");
-    texture_water      = loadImage ("assets/texture_water.png");
-    texture_log_side   = loadImage ("assets/texture_log_side.png");
-    texture_log_top    = loadImage ("assets/texture_log_top.png");
-    texture_leaves     = loadImage ("assets/texture_leaves.png");
+    texture_null       = loadImage ("assets/texture_null_64x.png");
+    texture_dirt       = loadImage ("assets/texture_dirt_64x.png");
+    texture_grass_side = loadImage ("assets/texture_grass_side_64x.png");
+    texture_grass_top  = loadImage ("assets/texture_grass_top_64x.png");
+    texture_sand       = loadImage ("assets/texture_sand_64x.png");
+    texture_stone      = loadImage ("assets/texture_stone_64x.png");
+    texture_water      = loadImage ("assets/texture_water_64x.png");
+    texture_log_side   = loadImage ("assets/texture_log_side_64x.png");
+    texture_log_top    = loadImage ("assets/texture_log_top_64x.png");
+    texture_leaves     = loadImage ("assets/texture_leaves_64x.png");
+    texture_block_break_0 = loadImage ("assets/texture_block_break_0_64x.png");
+    texture_block_break_1 = loadImage ("assets/texture_block_break_1_64x.png");
+    texture_block_break_2 = loadImage ("assets/texture_block_break_2_64x.png");
+    texture_block_break_3 = loadImage ("assets/texture_block_break_3_64x.png");
+    texture_block_break_4 = loadImage ("assets/texture_block_break_4_64x.png");
+    texture_block_break_5 = loadImage ("assets/texture_block_break_5_64x.png");
+    texture_block_break_6 = loadImage ("assets/texture_block_break_6_64x.png");
+    texture_block_break_7 = loadImage ("assets/texture_block_break_7_64x.png");
 
 }
 
@@ -158,6 +180,65 @@ function draw ()
         process_key_input ();
 
         player.update ();
+
+        // continue breaking block if we were mining
+        if (g_block_being_mined != null && !g_waiting_for_mouse_release)
+        {
+            // check if we finished breaking block
+            if (g_block_being_mined_delay <= 0.0)
+            {
+                // block is broken, delete it and pop out an item
+                let block_type = world.get_block_type (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z);
+                // delete the block
+                world.delete_block_at (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z);
+                // creative mode should not drop item entities
+                if (current_player_mode != PLAYER_MODE_CREATIVE)
+                {
+                    // drop item entity from the block
+                    let block_item_entity = new ItemEntity (new ItemStack (new Item (block_type), 1));
+                    // move entity to block's position
+                    block_item_entity.set_position (g_block_being_mined.x * BLOCK_WIDTH, -g_block_being_mined.y * BLOCK_WIDTH - BLOCK_WIDTH/2, g_block_being_mined.z * BLOCK_WIDTH);
+                    // send block in a random direction
+                    let dir = p5.Vector.random3D ();
+                    let vel = p5.Vector.mult (dir, BLOCK_THROW_SPEED/2);
+                    block_item_entity.add_velocity (vel.x, vel.y, vel.z);
+                    // Broken blocks should be able to be picked up instantly
+                    // so clear delay
+                    block_item_entity.collect_delay = 0.0;
+                    // add entity to global list
+                    g_entities.push (block_item_entity);
+                }
+                // block is broken so stop mining
+                g_block_being_mined = null;
+                // creative mode should wait until the mouse is released before it can break another block
+                if (current_player_mode == PLAYER_MODE_CREATIVE)
+                    g_waiting_for_mouse_release = true;
+            }
+            // keep breaking block IFF we are still facing it
+            else if (current_pointed_at_block != null && current_pointed_at_block.equals (g_block_being_mined))
+            {
+                g_block_being_mined_delay -= 1 / frameRate ();
+            }
+            // not looking at block anymore, reset
+            else
+            {
+                g_block_being_mined = null;
+                g_block_being_mined_delay = 0.0;
+            }
+        }
+        // start breaking a new block if we are holding down the mouse
+        else if (g_block_being_mined == null && current_pointed_at_block != null && mouseIsPressed && mouseButton === LEFT && !g_waiting_for_mouse_release)
+        {
+            g_block_being_mined = createVector (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
+            let block_type = world.get_block_type (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z);
+            // insta-mine if in creative
+            if (current_player_mode == PLAYER_MODE_CREATIVE)
+            {
+                g_block_being_mined_delay = 0;
+            }
+            else if (current_player_mode == PLAYER_MODE_SURVIVAL)
+                g_block_being_mined_delay = map_block_id_to_block_static_data.get (block_type).mine_duration;
+        }
         
         // draw world
         world.draw_solid_blocks ();
@@ -183,6 +264,37 @@ function draw ()
         }
 
         world.draw_transparent_blocks ();
+
+        // draw breaking block cracked texture
+        // needs to be draw after drawing transparent blocks
+        if (g_block_being_mined != null)
+        {
+            graphics.noFill ();
+            graphics.noStroke ();
+            let [world_x, world_y, world_z] = convert_block_index_to_world_coords (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z);
+            let max_delay = map_block_id_to_block_static_data.get (world.get_block_type (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z)).mine_duration;
+            let progress = 1 - (g_block_being_mined_delay / max_delay);
+            if (progress < 1/7)
+                graphics.texture (texture_block_break_0);
+            else if (progress < 2/7)
+                graphics.texture (texture_block_break_1);
+            else if (progress < 3/7)
+                graphics.texture (texture_block_break_2);
+            else if (progress < 4/7)
+                graphics.texture (texture_block_break_3);
+            else if (progress < 5/7)
+                graphics.texture (texture_block_break_4);
+            else if (progress < 6/7)
+                graphics.texture (texture_block_break_5);
+            else if (progress < 7/7)
+                graphics.texture (texture_block_break_6);
+            else
+                graphics.texture (texture_block_break_7);
+            graphics.translate (world_x + BLOCK_WIDTH/2, world_y-BLOCK_WIDTH/2, world_z+BLOCK_WIDTH/2);
+            // increased by a slight amount to prevent texture v texture clipping
+            graphics.box (BLOCK_WIDTH+0.01);
+            graphics.translate (-(world_x + BLOCK_WIDTH/2), -(world_y-BLOCK_WIDTH/2), -(world_z+BLOCK_WIDTH/2));
+        }
     }
 
     // draw the 3D graphics as an image to the main canvas
@@ -232,7 +344,6 @@ function draw_debug_overlay ()
     // style
     textSize (24);
     textFont (overlay_font);
-    // translate(-150, -150, 0);
     textAlign (LEFT, TOP);
     fill (255);
     stroke (0);
@@ -549,25 +660,7 @@ function mousePressed ()
         // mine/delete blocks or attack
         if (mouseButton === LEFT)
         {
-            if (current_pointed_at_block != null)
-            {
-                let block_type = world.get_block_type (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
-                // delete the block
-                world.delete_block_at (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
-                // drop item entity from the block
-                let block_item_entity = new ItemEntity (new ItemStack (new Item (block_type), 1));
-                // move entity to block's position
-                block_item_entity.set_position (current_pointed_at_block.x * BLOCK_WIDTH, -current_pointed_at_block.y * BLOCK_WIDTH - BLOCK_WIDTH/2, current_pointed_at_block.z * BLOCK_WIDTH);
-                // send block in a random direction
-                let dir = p5.Vector.random3D ();
-                let vel = p5.Vector.mult (dir, BLOCK_THROW_SPEED/2);
-                block_item_entity.add_velocity (vel.x, vel.y, vel.z);
-                // Broken blocks should be able to be picked up instantly
-                // so clear delay
-                block_item_entity.collect_delay = 0.0;
-                // add entity to global list
-                g_entities.push (block_item_entity);
-            }
+            // block mining is handled in draw loop
         }
         // place block or use item
         else if (mouseButton === RIGHT)
@@ -619,6 +712,11 @@ function mouseReleased ()
     {
         inventory_display.released ();
     }
+    // no longer breaking blocks
+    g_block_being_mined = null;
+    g_block_being_mined_delay = 0;
+    // mouse was released so we no longer need to wait
+    g_waiting_for_mouse_release = false;
 }
 
 //========================================================================
