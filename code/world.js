@@ -18,6 +18,15 @@ class World
 {
     constructor ()
     {
+        this.loaded_chunks_map = new Map ();
+        // keep track of modified chunks that are outside the render distance
+        // if a chunk is needed again, we can fetch the data here,
+        // otherwise, we'll need to generate the terrain
+        // Note: idealy, we should save this to a file to save RAM,
+        // but unfortunately, we cannot save to files via javascript without
+        // the user needing to approve a prompt for downloading the file.
+        this.unloaded_chunks_map = new Map ();
+
         // quick access map of the currently loaded chunks
         // this enables quick lookup using the chunk_xi, chunk_yi, and chunk_zi indices
         this.chunk_map = new Map ();

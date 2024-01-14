@@ -8,7 +8,7 @@ const ITEM_STACK_AMT_MAX = 64;
 
 //========================================================================
 
-// A useable item
+// inventory-storeable version of things in the world
 class Item
 {
     constructor (item_id)

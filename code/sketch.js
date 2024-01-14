@@ -54,6 +54,8 @@ let texture_water;
 let texture_log_side;
 let texture_log_top;
 let texture_leaves;
+let texture_glass;
+let texture_stone_pickaxe;
 let texture_block_break_0;
 let texture_block_break_1;
 let texture_block_break_2;
@@ -87,8 +89,44 @@ let g_entities = [];
 // this is the block that the player is currently mining
 let g_block_being_mined = null;
 let g_block_being_mined_delay = 0;
+let g_block_being_mined_delay_max = 0;
 // Creative mode only allows 1 block to break per click
 let g_waiting_for_mouse_release = false;
+
+// a debug variable to keep track of how many blocks
+// were culled in the current frame due to being
+// outside the camera's FOV
+// (for assessing performance)
+let g_num_out_of_view_culled_blocks = 0;
+// a debug variable to keep track of how many blocks
+// were culled in the current frame due to being
+// completely hidden by other blocks (blocks surrounded by solid blocks)
+// Note: transparent blocks can change this number depending on 
+// which direction the camera is looking from
+// (for assessing performance)
+let g_num_hidden_culled_blocks = 0;
+// a debug variable to keep track of how many blocks
+// we have drawn in the current frame
+// (for assessing performance)
+let g_num_drawn_blocks = 0;
+// a debug variable to keep track of how many faces
+// were culled in the current frame due to being out of frame
+// (for assessing performance)
+let g_num_culled_faces_out_of_view = 0;
+// a debug variable to keep track of how many faces
+// were culled in the current frame due to back-face culling
+// (for assessing performance)
+let g_num_culled_faces_back_face = 0;
+// a debug variable to keep track of how many faces
+// were culled in the current frame due to being
+// hidden by neighboring solid blocks
+// (for assessing performance)
+let g_num_culled_faces_hidden = 0;
+// a debug variable to keep track of how many faces
+// we have drawn in the current frame
+// (for assessing performance)
+let g_num_drawn_faces = 0;
+
 
 //========================================================================
 
@@ -107,6 +145,8 @@ function preload ()
     texture_log_side   = loadImage ("assets/texture_log_side_64x.png");
     texture_log_top    = loadImage ("assets/texture_log_top_64x.png");
     texture_leaves     = loadImage ("assets/texture_leaves_64x.png");
+    texture_glass      = loadImage ("assets/texture_glass_64x.png");
+    texture_stone_pickaxe = loadImage ("assets/texture_stone_pickaxe_64x.png");
     texture_block_break_0 = loadImage ("assets/texture_block_break_0_64x.png");
     texture_block_break_1 = loadImage ("assets/texture_block_break_1_64x.png");
     texture_block_break_2 = loadImage ("assets/texture_block_break_2_64x.png");
@@ -165,6 +205,15 @@ function draw ()
     // Update game if game is not paused
     if (!is_game_paused)
     {
+        // reset debug variables
+        g_num_out_of_view_culled_blocks = 0;
+        g_num_hidden_culled_blocks = 0;
+        g_num_drawn_blocks = 0;
+        g_num_culled_faces_out_of_view = 0;
+        g_num_culled_faces_back_face = 0;
+        g_num_culled_faces_hidden = 0;
+        g_num_drawn_faces = 0;
+
         graphics.clear ();
         // this resets certain values modified by transforms and lights
         // without this, the performance seems to significantly diminish over time
@@ -234,10 +283,37 @@ function draw ()
             // insta-mine if in creative
             if (current_player_mode == PLAYER_MODE_CREATIVE)
             {
+                g_block_being_mined_delay_max = 0;
                 g_block_being_mined_delay = 0;
             }
+            // we cant insta-mine in survival mode
             else if (current_player_mode == PLAYER_MODE_SURVIVAL)
-                g_block_being_mined_delay = map_block_id_to_block_static_data.get (block_type).mine_duration;
+            {
+                g_block_being_mined_delay_max = map_block_id_to_block_static_data.get (block_type).mine_duration;
+                g_block_being_mined_delay = g_block_being_mined_delay_max;
+                // scale delay if player is holding the necessary tool
+                let block_desired_tool = map_block_id_to_block_static_data.get (block_type).preferred_tool;
+                // ensure we are holding an item
+                let hand_item = player.hotbar.slots[current_hotbar_index] == null ? null : player.hotbar.slots[current_hotbar_index].item.item_id;
+                if (hand_item != null)
+                {
+                    // ensure item is a tool
+                    let is_tool = map_block_id_to_block_static_data.get (hand_item).tool_type != TOOL_NONE;
+                    let is_matching_tool = block_desired_tool == map_block_id_to_block_static_data.get (hand_item).tool_type;
+                    if (is_tool && is_matching_tool)
+                    {
+                        // tool is desired tool
+                        // reduce delay
+                        let tool_efficiency_factor = map_block_id_to_block_static_data.get (hand_item).tool_efficiency_factor;
+                        // guard against div-by-zero
+                        if (tool_efficiency_factor != 0)
+                        {
+                            g_block_being_mined_delay_max = g_block_being_mined_delay_max / tool_efficiency_factor;
+                            g_block_being_mined_delay = g_block_being_mined_delay_max;
+                        }
+                    }
+                }
+            }
         }
         
         // draw world
@@ -272,8 +348,8 @@ function draw ()
             graphics.noFill ();
             graphics.noStroke ();
             let [world_x, world_y, world_z] = convert_block_index_to_world_coords (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z);
-            let max_delay = map_block_id_to_block_static_data.get (world.get_block_type (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z)).mine_duration;
-            let progress = 1 - (g_block_being_mined_delay / max_delay);
+            // using global max as that accounts for tool efficiency
+            let progress = 1 - (g_block_being_mined_delay / g_block_being_mined_delay_max);
             if (progress < 1/7)
                 graphics.texture (texture_block_break_0);
             else if (progress < 2/7)
@@ -302,6 +378,7 @@ function draw ()
 
     // draw overlay elements
     if (is_in_debug_mode) draw_debug_overlay ();
+    if (is_in_debug_mode) draw_controls ();
     draw_cursor ();
     draw_hotbar ();
 
@@ -342,11 +419,11 @@ function draw_debug_overlay ()
 {
     push ();
     // style
-    textSize (24);
+    textSize (20);
     textFont (overlay_font);
     textAlign (LEFT, TOP);
     fill (255);
-    stroke (0);
+    stroke (0, 180);
     strokeWeight (4);
     // load data
     let fps = frameRate ();
@@ -378,6 +455,8 @@ function draw_debug_overlay ()
     let block_type_str = BLOCK_ID_STR_MAP.get (block_type);
     let pointing_at_block = current_pointed_at_block == null ? "null" : `${current_pointed_at_block.x}, ${current_pointed_at_block.y}, ${current_pointed_at_block.z}`;
     let pointing_at_block_type = current_pointed_at_block == null ? "null" : BLOCK_ID_STR_MAP.get (world.get_block_type (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z));
+    let pointing_at_block_break_time = current_pointed_at_block == null ? "null" : map_block_id_to_block_static_data.get (world.get_block_type (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z)).mine_duration;
+    let pointing_at_block_time_left = g_block_being_mined_delay;
     // draw debug text
     text (`FPS: ${fps.toFixed (0)}, Ave: ${fps_ave.toFixed (0)}\n` +
         `frame time (ms): ${frame_time.toFixed (2)}, Ave: ${frame_time_ave.toFixed (2)}\n` +
@@ -391,12 +470,60 @@ function draw_debug_overlay ()
         `chunk_block_idx: ${chunk_block_xi}, ${chunk_block_yi}, ${chunk_block_zi}\n` +
         `block id:   ${block_type_str}\n` +
         `draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}\n` +
-        `pointing at block: ${pointing_at_block}\n` +
-        `pointing at block type: ${pointing_at_block_type}\n` +
+        `facing block: ${pointing_at_block}\n` +
+        `facing block type: ${pointing_at_block_type}\n` +
+        `facing block break time (s): ${pointing_at_block_break_time}\n` +
+        `facing block time left (s): ${pointing_at_block_time_left.toFixed (2)}\n` +
         `control mode: ${PLAYER_CONTROL_MODE_STR_MAP.get (player.control_mode)}\n` +
         `player mode:  ${PLAYER_MODE_STR_MAP.get (current_player_mode)}\n` +
-        `num entities: ${g_entities.length}`,
+        `num entities: ${g_entities.length}\n` +
+        `num culled blocks (out-of-FOV): ${g_num_out_of_view_culled_blocks}\n` +
+        `num culled blocks (hidden):     ${g_num_hidden_culled_blocks}\n` +
+        `num culled blocks (total):      ${g_num_out_of_view_culled_blocks+g_num_hidden_culled_blocks}\n` +
+        `num drawn blocks:               ${g_num_drawn_blocks}\n` +
+        `num culled faces (out-of-FOV):  ${g_num_culled_faces_out_of_view}\n` +
+        `num culled faces (back-face):   ${g_num_culled_faces_back_face}\n` +
+        `num culled faces (hidden):      ${g_num_culled_faces_hidden}\n` +
+        `num culled faces (total):       ${g_num_culled_faces_out_of_view+g_num_culled_faces_back_face+g_num_culled_faces_hidden}\n` +
+        `num drawn faces:                ${g_num_drawn_faces}\n`,
         0, 0);
+    pop ();
+}
+
+
+//========================================================================
+
+function draw_controls ()
+{
+    push ();
+    textSize (20);
+    textFont (overlay_font);
+    textAlign (RIGHT, TOP);
+    fill (255);
+    stroke (0, 180);
+    strokeWeight (4);
+    text (                              `Controls:\n` +
+                               `move player - WASD\n` +
+                         `move faster - Shift+WASD\n` +
+                    `jump (normal mode) - Spacebar\n` +
+                 `fly up (flying modes) - Spacebar\n` +
+                      `fly down (flying modes) - Z\n` +
+                     `pan/tilt camera - Arrow Keys\n` +
+                          `pan/tilt camera - Mouse\n` +
+                  `break block - Left Mouse Button\n` +
+        `place block/use item - Right Mouse Button\n` +
+        `cycle through hotbar items - Scroll Wheel\n` +
+                 `select hotbar item - Number Keys\n` +
+                     `drop one of current item - Q\n` +
+               `drop all of current item - Shift+Q\n` +
+                            `toggle debug info - G\n` +
+                            `cycle player mode - L\n` +
+                           `cycle control mode - P\n` +
+                             `cycle draw style - T\n` +
+                             `toggle inventory - I\n` +
+                             `pause game - ESC/Tab\n` ,
+
+        width, 0);
     pop ();
 }
 

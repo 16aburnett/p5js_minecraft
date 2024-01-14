@@ -66,7 +66,7 @@ class Chunk
 
         // preprocess chunk
         // count non-zeros
-        // for culling rows of air
+        // for culling dimensions of air
         for (let x = 0; x < CHUNK_SIZE; ++x)
         {
             for (let y = 0; y < CHUNK_SIZE; ++y)

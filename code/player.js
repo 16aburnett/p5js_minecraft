@@ -69,13 +69,15 @@ class Player
         this.inventory.add_item_at (0, 2, new ItemStack (new Item (BLOCK_ID_STONE), 24));
         // player's hotbar
         this.hotbar = new Inventory (1, 9);
-        this.hotbar.add_item_at (0, 0, new ItemStack (new Item (BLOCK_ID_GRASS), 64));
-        this.hotbar.add_item_at (0, 1, new ItemStack (new Item (BLOCK_ID_DIRT), 64));
-        this.hotbar.add_item_at (0, 2, new ItemStack (new Item (BLOCK_ID_STONE), 64));
-        this.hotbar.add_item_at (0, 3, new ItemStack (new Item (BLOCK_ID_SAND), 64));
-        this.hotbar.add_item_at (0, 4, new ItemStack (new Item (BLOCK_ID_WATER), 64));
-        this.hotbar.add_item_at (0, 5, new ItemStack (new Item (BLOCK_ID_LOG), 64));
-        this.hotbar.add_item_at (0, 6, new ItemStack (new Item (BLOCK_ID_LEAVES), 64));
+        this.hotbar.add_item (new ItemStack (new Item (ITEM_ID_STONE_PICKAXE), 1));
+        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_GRASS), 64));
+        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_DIRT), 64));
+        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_STONE), 64));
+        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_SAND), 64));
+        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_WATER), 64));
+        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_LOG), 64));
+        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_LEAVES), 64));
+        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_GLASS), 64));
         
         this.control_mode = PLAYER_CONTROL_MODE_NORMAL;
     }
@@ -147,6 +149,28 @@ class Player
             return;
         this.velocity.add (0, -this.jump_force, 0);
         this.is_falling = true;
+    }
+
+    get_camera_forward ()
+    {
+        return createVector (cos (this.pan_amount), tan (this.tilt_amount), sin (this.pan_amount));
+    }
+
+    get_camera_position ()
+    {
+        return createVector (this.camera.eyeX, this.camera.eyeY, this.camera.eyeZ);
+    }
+
+    // returns true if the given position is outside the player's FOV
+    // true otherwise
+    is_outside_camera_view (v)
+    {
+        // this works by checking the angle between the direction the camera is facing
+        // and a vector pointing from the camera to the given position
+        let cam_to_v = p5.Vector.sub (v, this.get_camera_position ());
+        let angle_between = p5.Vector.angleBetween (this.get_camera_forward (), cam_to_v);
+        let is_v_behind_camera = Math.abs (angle_between) > radians (FOV_DEGREES);
+        return is_v_behind_camera;
     }
 
     update ()
@@ -312,7 +336,7 @@ class Player
 
         // sync global camera position with player
         // camera's forward takes into account tilt
-        let camera_forward = createVector (cos (this.pan_amount), tan (this.tilt_amount), sin (this.pan_amount));
+        let camera_forward = this.get_camera_forward ();
         camera_forward.normalize ();
         // focused_point is a point where the camera will look at which the camera needs
         let focused_point = p5.Vector.add (this.position, camera_forward);

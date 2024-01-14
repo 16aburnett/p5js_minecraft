@@ -18,6 +18,8 @@ const BLOCK_ID_WATER      = 4;
 const BLOCK_ID_SAND       = 5;
 const BLOCK_ID_LOG        = 6;
 const BLOCK_ID_LEAVES     = 7;
+const BLOCK_ID_GLASS      = 8;
+const ITEM_ID_STONE_PICKAXE     = 9;
 const BLOCK_ID_STR_MAP = new Map ();
 BLOCK_ID_STR_MAP.set (BLOCK_ID_NONE  , "BLOCK_ID_NONE");
 BLOCK_ID_STR_MAP.set (BLOCK_ID_AIR   , "BLOCK_ID_AIR");
@@ -28,6 +30,8 @@ BLOCK_ID_STR_MAP.set (BLOCK_ID_WATER , "BLOCK_ID_WATER");
 BLOCK_ID_STR_MAP.set (BLOCK_ID_SAND  , "BLOCK_ID_SAND");
 BLOCK_ID_STR_MAP.set (BLOCK_ID_LOG   , "BLOCK_ID_LOG");
 BLOCK_ID_STR_MAP.set (BLOCK_ID_LEAVES, "BLOCK_ID_LEAVES");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_GLASS , "BLOCK_ID_GLASS");
+BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_PICKAXE, "ITEM_ID_STONE_PICKAXE");
 
 const TEXTURE_TOP    = 0;
 const TEXTURE_SIDE   = 1;
@@ -37,16 +41,17 @@ const DRAW_STYLE_TEXTURED_PLANE   = 0; // individual texture images + plane
 const DRAW_STYLE_WIREFRAME        = 1;
 const DRAW_STYLE_FILL             = 2;
 const DRAW_STYLE_FILL_WIREFRAME   = 3;
-const DRAW_STYLE_TEXTURED         = 4; // texture atlas + vertex shape
-const DRAW_STYLE_MAX              = 5;
+const DRAW_STYLE_TEXTURED         = 4; // texture atlas + vertex shape - super slow
+const DRAW_STYLE_NONE             = 5; // texture atlas + vertex shape
+const DRAW_STYLE_MAX              = 6;
 let current_draw_style = 0;
-
 const DRAW_STYLE_STR_MAP = new Map ();
 DRAW_STYLE_STR_MAP.set (DRAW_STYLE_TEXTURED_PLANE, "normal textured plane");
 DRAW_STYLE_STR_MAP.set (DRAW_STYLE_WIREFRAME, "wireframe");
 DRAW_STYLE_STR_MAP.set (DRAW_STYLE_FILL, "simple fill");
 DRAW_STYLE_STR_MAP.set (DRAW_STYLE_FILL_WIREFRAME, "simple fill + wireframe");
 DRAW_STYLE_STR_MAP.set (DRAW_STYLE_TEXTURED, "texture atlas + manual vertex planes (super slow)");
+DRAW_STYLE_STR_MAP.set (DRAW_STYLE_NONE, "none");
 
 // The size of each texture in the texture atlas
 const TEXTURE_WIDTH = 16;
@@ -60,13 +65,14 @@ let map_block_id_to_block_static_data;
 const TOOL_PICKAXE = 0;
 const TOOL_SHOVEL  = 1;
 const TOOL_AXE     = 2;
+const TOOL_NONE    = 3;
 
 //========================================================================
 
 // this represents 
 class BlockStaticData
 {
-    constructor (block_id, texture_atlas_data, texture_img_data, fill_color, stack_max_size, is_transparent)
+    constructor (block_id, texture_atlas_data, texture_img_data, fill_color, stack_max_size, is_transparent, mine_duration, preferred_tool, is_item, tool_efficiency_factor, tool_type)
     {
         this.block_id = block_id;
         this.texture_atlas_data = texture_atlas_data;
@@ -76,9 +82,13 @@ class BlockStaticData
         // whether the texture has transparency or not
         // this is true for water or leaves
         this.is_transparent = is_transparent;
-        this.mine_duration = 2;
+        this.mine_duration = mine_duration;
         // the type of tool that can break this block
-        this.preferred_tool = TOOL_PICKAXE;
+        this.preferred_tool = preferred_tool;
+        // **for now** ad hoc for items
+        this.is_item = is_item;
+        this.tool_efficiency_factor = tool_efficiency_factor;
+        this.tool_type = tool_type;
     }
 }
 
@@ -108,7 +118,12 @@ function block_setup ()
         ], 
         [100, 150, 255, 100],
         stack_max_size=64,
-        is_transparent=true)
+        is_transparent=true,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=false,
+        tool_efficiency_factor=0,
+        tool_type=TOOL_NONE)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_GRASS, new BlockStaticData (
         BLOCK_ID_GRASS, 
@@ -124,7 +139,12 @@ function block_setup ()
         ], 
         "lime",
         stack_max_size=64,
-        is_transparent=false)
+        is_transparent=false,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=false,
+        tool_efficiency_factor=0,
+        tool_type=TOOL_NONE)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_DIRT, new BlockStaticData (
         BLOCK_ID_DIRT, 
@@ -140,7 +160,12 @@ function block_setup ()
         ], 
         "#964B00",
         stack_max_size=64,
-        is_transparent=false)
+        is_transparent=false,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=false,
+        tool_efficiency_factor=0,
+        tool_type=TOOL_NONE)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_STONE, new BlockStaticData (
         BLOCK_ID_STONE, 
@@ -156,7 +181,12 @@ function block_setup ()
         ], 
         "gray",
         stack_max_size=64,
-        is_transparent=false)
+        is_transparent=false,
+        mine_duration=5,
+        preferred_tool=TOOL_PICKAXE,
+        is_item=false,
+        tool_efficiency_factor=0,
+        tool_type=TOOL_NONE)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_WATER, new BlockStaticData (
         BLOCK_ID_WATER, 
@@ -172,7 +202,12 @@ function block_setup ()
         ], 
         [50, 100, 255, 150],
         stack_max_size=64,
-        is_transparent=true)
+        is_transparent=true,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=false,
+        tool_efficiency_factor=0,
+        tool_type=TOOL_NONE)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_SAND, new BlockStaticData (
         BLOCK_ID_SAND, 
@@ -188,7 +223,12 @@ function block_setup ()
         ], 
         "#C2B280",
         stack_max_size=64,
-        is_transparent=false)
+        is_transparent=false,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=false,
+        tool_efficiency_factor=0,
+        tool_type=TOOL_NONE)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_LOG, new BlockStaticData (
         BLOCK_ID_LOG, 
@@ -204,7 +244,12 @@ function block_setup ()
         ], 
         "#694b37",
         stack_max_size=64,
-        is_transparent=false)
+        is_transparent=false,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=false,
+        tool_efficiency_factor=0,
+        tool_type=TOOL_NONE)
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_LEAVES, new BlockStaticData (
         BLOCK_ID_LEAVES, 
@@ -220,7 +265,54 @@ function block_setup ()
         ], 
         "#88ff22",
         stack_max_size=64,
-        is_transparent=true)
+        is_transparent=true,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=false,
+        tool_efficiency_factor=0,
+        tool_type=TOOL_NONE)
+    );
+    map_block_id_to_block_static_data.set (BLOCK_ID_GLASS, new BlockStaticData (
+        BLOCK_ID_GLASS, 
+        [ // texture atlas positions
+            [0, 1], // top
+            [0, 1], // sides
+            [0, 1]  // bottom
+        ], 
+        [ // individual texture images
+            texture_glass, // top
+            texture_glass, // sides
+            texture_glass  // bottom
+        ], 
+        [210, 230, 255, 60],
+        stack_max_size=64,
+        is_transparent=true,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=false,
+        tool_efficiency_factor=0,
+        tool_type=TOOL_NONE)
+    );
+    map_block_id_to_block_static_data.set (ITEM_ID_STONE_PICKAXE, new BlockStaticData (
+        ITEM_ID_STONE_PICKAXE, 
+        [ // texture atlas positions
+            [0, 0], // top
+            [0, 0], // sides
+            [0, 0]  // bottom
+        ], 
+        [ // individual texture images
+            texture_stone_pickaxe, // top
+            texture_stone_pickaxe, // sides
+            texture_stone_pickaxe  // bottom
+        ], 
+        "gray",
+        stack_max_size=1,
+        is_transparent=true,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=true,
+        tool_efficiency_factor=3,
+        tool_type=TOOL_PICKAXE)
     );
 
 }
@@ -235,16 +327,34 @@ function draw_block (x, y, z, chunk, block_type)
     if (this_block_type == BLOCK_ID_AIR)
         return;
 
+    let world_x = (chunk.xi * CHUNK_SIZE * BLOCK_WIDTH) + x * BLOCK_WIDTH;
+    let world_y = -((chunk.yi * CHUNK_SIZE * BLOCK_WIDTH) + y * BLOCK_WIDTH); // y axis is reversed
+    let world_z = (chunk.zi * CHUNK_SIZE * BLOCK_WIDTH) + z * BLOCK_WIDTH;
+    let position_world = createVector (world_x, world_y, world_z);
+    let block_xi = chunk.xi * CHUNK_SIZE + x;
+    let block_yi = chunk.yi * CHUNK_SIZE + y;
+    let block_zi = chunk.zi * CHUNK_SIZE + z;
+
+    // dont draw if block is behind the camera
+    // (i.e. it wont be seen by the camera so no need to waste calcuations)
+    // we know a block is behind the camera if the camera is pointing
+    // at least 90 degrees away from the block (or FOV)
+    if (player.is_outside_camera_view (position_world))
+    {
+        ++g_num_out_of_view_culled_blocks;
+        // all 6 faces are not drawn
+        // this ignores whether blocks would be culled by other means
+        g_num_culled_faces_out_of_view += 6;
+        return;
+    }
+
     // move to block's center position
     // we will need to undo this later
     graphics.translate (x*BLOCK_WIDTH, -y*BLOCK_WIDTH, z*BLOCK_WIDTH);
 
-    let world_x = (chunk.xi * CHUNK_SIZE * BLOCK_WIDTH) + x * BLOCK_WIDTH;
-    let world_y = -((chunk.yi * CHUNK_SIZE * BLOCK_WIDTH) + y * BLOCK_WIDTH); // y axis is reversed
-    let world_z = (chunk.zi * CHUNK_SIZE * BLOCK_WIDTH) + z * BLOCK_WIDTH;
-    let block_xi = chunk.xi * CHUNK_SIZE + x;
-    let block_yi = chunk.yi * CHUNK_SIZE + y;
-    let block_zi = chunk.zi * CHUNK_SIZE + z;
+    // [for debug info] if we drew at least one face, then we drew the block
+    // otherwise we culled it
+    let was_block_drawn = false;
 
     // enable wireframe
     if (current_draw_style == DRAW_STYLE_WIREFRAME || current_draw_style == DRAW_STYLE_FILL_WIREFRAME)
@@ -265,20 +375,6 @@ function draw_block (x, y, z, chunk, block_type)
     // only draw if the next block is transparent and the camera is not behind the plane
     let is_camera_infront_of_plane = true;
     if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeZ >= world_z;
-    // let is_this_block_water = this_block_type == BLOCK_ID_WATER;
-    // let is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi},${chunk.zi+1}`);
-    // let is_next_block_in_this_chunk = 0 <= z+1 && z+1 < CHUNK_SIZE;
-    // let is_next_block_air = 
-    //     (is_next_block_in_this_chunk && chunk.blocks[x][y][z+1] == BLOCK_ID_AIR) || 
-    //     (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
-    //     /*need to check first block in next chunk*/
-    //     (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_AIR);
-    // let is_next_block_water = 
-    //     // ensure current block is not water
-    //     !is_this_block_water &&
-    //     ((is_next_block_in_this_chunk && chunk.blocks[x][y][z+1] == BLOCK_ID_WATER) ||
-    //     (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi+1}`).blocks[x][y][0] == BLOCK_ID_WATER));
-    // let is_next_block_transparent = is_next_block_air || is_next_block_water;
     let next_block = world.get_block_type (block_xi, block_yi, block_zi+1);
     is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
     let are_both_blocks_water = this_block_type == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
@@ -293,29 +389,28 @@ function draw_block (x, y, z, chunk, block_type)
         graphics.translate (BLOCK_WIDTH/2, -BLOCK_WIDTH/2, BLOCK_WIDTH);
         // draw the face
         draw_face (this_block_type, TEXTURE_SIDE);
-        
         // undo translate
         graphics.translate (-(BLOCK_WIDTH/2), -(-BLOCK_WIDTH/2), -(BLOCK_WIDTH));
+
+        // we drew at least one face of the block so we drew the block
+        was_block_drawn = true;
+        ++g_num_drawn_faces;
+    }
+    // dont draw face
+    else
+    {
+        // culled due to backface culling
+        if (!is_camera_infront_of_plane)
+            ++g_num_culled_faces_back_face;
+        // culled due to being hidden
+        else
+            ++g_num_culled_faces_hidden;
     }
 
     // back face
     // only draw if the next block is transparent and the camera is not behind the plane
     is_camera_infront_of_plane = true;
     if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeZ <= world_z;
-    // is_this_block_water = this_block_type == BLOCK_ID_WATER;
-    // is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi},${chunk.zi-1}`);
-    // is_next_block_in_this_chunk = 0 <= z-1 && z-1 < CHUNK_SIZE;
-    // is_next_block_air = 
-    //     (is_next_block_in_this_chunk && chunk.blocks[x][y][z-1] == BLOCK_ID_AIR) || 
-    //     (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
-    //     /*need to check first block in next chunk*/
-    //     (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_AIR);
-    // is_next_block_water = 
-    //     // ensure current block is not water
-    //     !is_this_block_water &&
-    //     ((is_next_block_in_this_chunk && chunk.blocks[x][y][z-1] == BLOCK_ID_WATER) ||
-    //     (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi},${chunk.zi-1}`).blocks[x][y][CHUNK_SIZE-1] == BLOCK_ID_WATER));
-    // is_next_block_transparent = is_next_block_air || is_next_block_water;
     next_block = world.get_block_type (block_xi, block_yi, block_zi-1);
     is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
     are_both_blocks_water = this_block_type == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
@@ -331,31 +426,30 @@ function draw_block (x, y, z, chunk, block_type)
         graphics.rotateY (PI);
         // draw the face
         draw_face (this_block_type, TEXTURE_SIDE);
-
         // undo rotation
         graphics.rotateY (-PI);
         // undo translation
         graphics.translate (-(BLOCK_WIDTH/2), -(-BLOCK_WIDTH/2), -(0));
+        
+        // we drew at least one face of the block so we drew the block
+        was_block_drawn = true;
+        ++g_num_drawn_faces;
+    }
+    // dont draw face
+    else
+    {
+        // culled due to backface culling
+        if (!is_camera_infront_of_plane)
+            ++g_num_culled_faces_back_face;
+        // culled due to being hidden
+        else
+            ++g_num_culled_faces_hidden;
     }
 
     // left face
     // only draw if the next block is transparent and the camera is not behind the plane
     is_camera_infront_of_plane = true;
     if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeX <= world_x;
-    // is_this_block_water = this_block_type == BLOCK_ID_WATER;
-    // is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi-1},${chunk.yi},${chunk.zi}`);
-    // is_next_block_in_this_chunk = 0 <= x-1 && x-1 < CHUNK_SIZE;
-    // is_next_block_air = 
-    //     (is_next_block_in_this_chunk && chunk.blocks[x-1][y][z] == BLOCK_ID_AIR) || 
-    //     (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
-    //     /*need to check first block in next chunk*/
-    //     (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi-1},${chunk.yi},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_AIR);
-    // is_next_block_water = 
-    //     // ensure current block is not water
-    //     !is_this_block_water &&
-    //     ((is_next_block_in_this_chunk && chunk.blocks[x-1][y][z] == BLOCK_ID_WATER) ||
-    //     (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi-1},${chunk.yi},${chunk.zi}`).blocks[CHUNK_SIZE-1][y][z] == BLOCK_ID_WATER));
-    // is_next_block_transparent = is_next_block_air || is_next_block_water;
     next_block = world.get_block_type (block_xi-1, block_yi, block_zi);
     is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
     are_both_blocks_water = this_block_type == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
@@ -369,31 +463,30 @@ function draw_block (x, y, z, chunk, block_type)
         graphics.rotateY (PI/2);
         // draw the face
         draw_face (this_block_type, TEXTURE_SIDE);
-        
         // undo rotation
         graphics.rotateY (-(PI/2));
         // undo translation
         graphics.translate (-(0), -(-BLOCK_WIDTH/2), -(BLOCK_WIDTH/2));
+        
+        // we drew at least one face of the block so we drew the block
+        was_block_drawn = true;
+        ++g_num_drawn_faces;
+    }
+    // dont draw face
+    else
+    {
+        // culled due to backface culling
+        if (!is_camera_infront_of_plane)
+            ++g_num_culled_faces_back_face;
+        // culled due to being hidden
+        else
+            ++g_num_culled_faces_hidden;
     }
 
     // right face
     // only draw if the next block is transparent and the camera is not behind the plane
     is_camera_infront_of_plane = true;
     if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeX >= world_x;
-    // is_this_block_water = this_block_type == BLOCK_ID_WATER;
-    // is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi+1},${chunk.yi},${chunk.zi}`);
-    // is_next_block_in_this_chunk = 0 <= x+1 && x+1 < CHUNK_SIZE;
-    // is_next_block_air = 
-    //     (is_next_block_in_this_chunk && chunk.blocks[x+1][y][z] == BLOCK_ID_AIR) || 
-    //     (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
-    //     /*need to check first block in next chunk*/
-    //     (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi+1},${chunk.yi},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_AIR);
-    // is_next_block_water = 
-    //     // ensure current block is not water
-    //     !is_this_block_water &&
-    //     ((is_next_block_in_this_chunk && chunk.blocks[x+1][y][z] == BLOCK_ID_WATER) ||
-    //     (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi+1},${chunk.yi},${chunk.zi}`).blocks[0][y][z] == BLOCK_ID_WATER));
-    // is_next_block_transparent = is_next_block_air || is_next_block_water;
     next_block = world.get_block_type (block_xi+1, block_yi, block_zi);
     is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
     are_both_blocks_water = this_block_type == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
@@ -408,31 +501,30 @@ function draw_block (x, y, z, chunk, block_type)
         graphics.rotateY (-PI/2);
         // draw the face
         draw_face (this_block_type, TEXTURE_SIDE);
-
         // undo rotation
         graphics.rotateY (-(-PI/2));
         // undo translation
         graphics.translate (-(BLOCK_WIDTH), -(-BLOCK_WIDTH/2), -(BLOCK_WIDTH/2));
+        
+        // we drew at least one face of the block so we drew the block
+        was_block_drawn = true;
+        ++g_num_drawn_faces;
+    }
+    // dont draw face
+    else
+    {
+        // culled due to backface culling
+        if (!is_camera_infront_of_plane)
+            ++g_num_culled_faces_back_face;
+        // culled due to being hidden
+        else
+            ++g_num_culled_faces_hidden;
     }
 
     // top face
     // only draw if the next block is transparent and the camera is not behind the plane
     is_camera_infront_of_plane = true;
     if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeY <= world_y;
-    // is_this_block_water = this_block_type == BLOCK_ID_WATER;
-    // is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi+1},${chunk.zi}`);
-    // is_next_block_in_this_chunk = 0 <= y+1 && y+1 < CHUNK_SIZE;
-    // is_next_block_air = 
-    //     (is_next_block_in_this_chunk && chunk.blocks[x][y+1][z] == BLOCK_ID_AIR) || 
-    //     (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
-    //     /*need to check first block in next chunk*/
-    //     (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi+1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_AIR);
-    // is_next_block_water = 
-    //     // ensure current block is not water
-    //     !is_this_block_water &&
-    //     ((is_next_block_in_this_chunk && chunk.blocks[x][y+1][z] == BLOCK_ID_WATER) ||
-    //     (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi+1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_WATER));
-    // is_next_block_transparent = is_next_block_air || is_next_block_water;
     next_block = world.get_block_type (block_xi, block_yi+1, block_zi);
     is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
     are_both_blocks_water = this_block_type == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
@@ -446,31 +538,30 @@ function draw_block (x, y, z, chunk, block_type)
         graphics.rotateX (-PI/2);
         // draw the face
         draw_face (this_block_type, TEXTURE_TOP);
-
         // undo rotation
         graphics.rotateX (-(-PI/2));
         // undo translation
         graphics.translate (-(BLOCK_WIDTH/2), -(-BLOCK_WIDTH), -(BLOCK_WIDTH/2));
+        
+        // we drew at least one face of the block so we drew the block
+        was_block_drawn = true;
+        ++g_num_drawn_faces;
+    }
+    // dont draw face
+    else
+    {
+        // culled due to backface culling
+        if (!is_camera_infront_of_plane)
+            ++g_num_culled_faces_back_face;
+        // culled due to being hidden
+        else
+            ++g_num_culled_faces_hidden;
     }
     
     // bottom face
     // only draw if the next block is transparent and the camera is not behind the plane
     is_camera_infront_of_plane = true;
     if (BACK_FACE_CULLING) is_camera_infront_of_plane = player.camera.eyeY >= world_y;
-    // is_this_block_water = this_block_type == BLOCK_ID_WATER;
-    // is_last_chunk_in_dir = !world.chunk_map.has (`${chunk.xi},${chunk.yi-1},${chunk.zi}`);
-    // is_next_block_in_this_chunk = 0 <= y-1 && y-1 < CHUNK_SIZE;
-    // is_next_block_air = 
-    //     (is_next_block_in_this_chunk && chunk.blocks[x][y-1][z] == BLOCK_ID_AIR) || 
-    //     (!is_next_block_in_this_chunk && is_last_chunk_in_dir) || 
-    //     /*need to check first block in next chunk*/
-    //     (!is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi-1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_AIR);
-    // is_next_block_water = 
-    //     // ensure current block is not water
-    //     !is_this_block_water &&
-    //     ((is_next_block_in_this_chunk && chunk.blocks[x][y-1][z] == BLOCK_ID_WATER) ||
-    //     (!is_next_block_in_this_chunk && !is_last_chunk_in_dir && world.chunk_map.get (`${chunk.xi},${chunk.yi-1},${chunk.zi}`).blocks[x][0][z] == BLOCK_ID_WATER));
-    // is_next_block_transparent = is_next_block_air || is_next_block_water;
     next_block = world.get_block_type (block_xi, block_yi-1, block_zi);
     is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
     are_both_blocks_water = this_block_type == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
@@ -489,10 +580,33 @@ function draw_block (x, y, z, chunk, block_type)
         graphics.rotateX (-(PI/2));
         // undo translation
         graphics.translate (-(BLOCK_WIDTH/2), -(0), -(BLOCK_WIDTH/2));
+        
+        // we drew at least one face of the block so we drew the block
+        was_block_drawn = true;
+        ++g_num_drawn_faces;
+    }
+    // dont draw face
+    else
+    {
+        // culled due to backface culling
+        if (!is_camera_infront_of_plane)
+            ++g_num_culled_faces_back_face;
+        // culled due to being hidden
+        else
+            ++g_num_culled_faces_hidden;
     }
 
     // undo translation
     graphics.translate (-(x*BLOCK_WIDTH), -(-y*BLOCK_WIDTH), -(z*BLOCK_WIDTH));
+
+    // [for debug info]
+    // check if we drew the block
+    if (was_block_drawn)
+        // block was drawn so increment counter
+        ++g_num_drawn_blocks;
+    else
+        // no face was drawn - probably hidden by other blocks
+        ++g_num_hidden_culled_blocks;
 
 }
 
@@ -532,6 +646,9 @@ function draw_face (block_type, texture_face)
         case DRAW_STYLE_WIREFRAME:
             graphics.noFill ();
             graphics.plane (BLOCK_WIDTH, BLOCK_WIDTH);
+            break;
+        case DRAW_STYLE_NONE:
+            // dont draw anything
             break;
     }
 }
