@@ -229,6 +229,7 @@ function draw ()
         process_key_input ();
 
         player.update ();
+        world.update ();
 
         // continue breaking block if we were mining
         if (g_block_being_mined != null && !g_waiting_for_mouse_release)
@@ -400,6 +401,7 @@ function draw ()
         push ();
         // darken background
         fill (0, 0, 0, 175);
+        noStroke ();
         rect (0, 0, windowWidth, windowHeight);
         // draw paused message
         textSize (64);
@@ -485,7 +487,10 @@ function draw_debug_overlay ()
         `num culled faces (back-face):   ${g_num_culled_faces_back_face}\n` +
         `num culled faces (hidden):      ${g_num_culled_faces_hidden}\n` +
         `num culled faces (total):       ${g_num_culled_faces_out_of_view+g_num_culled_faces_back_face+g_num_culled_faces_hidden}\n` +
-        `num drawn faces:                ${g_num_drawn_faces}\n`,
+        `num drawn faces:                ${g_num_drawn_faces}\n` +
+        `num loaded chunks: ${world.loaded_chunks_map.size}\n` +
+        `num unloaded chunks: ${world.unloaded_chunks_map.size}\n` +
+        `chunk follow: ${should_chunks_follow_player}\n`,
         0, 0);
     pop ();
 }
@@ -517,6 +522,7 @@ function draw_controls ()
                      `drop one of current item - Q\n` +
                `drop all of current item - Shift+Q\n` +
                             `toggle debug info - G\n` +
+           `toggle chunk load following player - C\n` +
                             `cycle player mode - L\n` +
                            `cycle control mode - P\n` +
                              `cycle draw style - T\n` +
@@ -687,6 +693,12 @@ function keyPressed ()
     if (keyCode == "L".charCodeAt (0))
     {
         current_player_mode = (current_player_mode + 1) % PLAYER_MODE_MAX;
+    }
+    // toggle chunk loading following player or not
+    // this allows us to stop the following to examine the sides of a chunk
+    if (keyCode == "C".charCodeAt (0))
+    {
+        should_chunks_follow_player = !should_chunks_follow_player;
     }
     // cycle through hotbar
     if (keyCode == '1'.charCodeAt (0))
