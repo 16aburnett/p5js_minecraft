@@ -27,6 +27,8 @@ const CAMERA_MOVEMENT_SPEED = 0.1;
 const CAMERA_RUN_MOVEMENT_SPEED = CAMERA_MOVEMENT_SPEED*4;
 const MOUSE_SENSITIVITY = 0.01;
 
+const COLLISION_DETECT_FREQUENCY = 0.05;
+
 //========================================================================
 
 class Player
@@ -98,6 +100,18 @@ class Player
             this.position.y - this.height,
             this.position.z - this.width/2,
             this.position.z + this.width/2
+        ];
+    }
+
+    get_AABB_from_pos (pos)
+    {
+        return [
+            pos.x - this.width/2,
+            pos.x + this.width/2,
+            pos.y,
+            pos.y - this.height,
+            pos.z - this.width/2,
+            pos.z + this.width/2
         ];
     }
 
@@ -213,122 +227,212 @@ class Player
         // Collisions detection + correction
         if (this.control_mode != PLAYER_CONTROL_MODE_NOCLIP)
         {
-            // check X direction
-            if (prev_position.x != this.position.x)
+            // check left direction (if we moved left)
+            if (prev_position.x > this.position.x)
             {
                 // check left
-                let [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x-this.width/2, this.position.y-BLOCK_WIDTH/2, this.position.z);
-                let block_type = world.get_block_type (block_xi, block_yi, block_zi);
-                if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                // check multiple points along path
+                // bc the player could have traveled far between frames
+                for (let x = prev_position.x; x >= this.position.x; x -= COLLISION_DETECT_FREQUENCY)
                 {
-                    let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
-                    let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
-                    let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
-                    if (is_colliding)
+                    // if we are close enough to the end position,
+                    // then just check the exact position
+                    if (x - this.position.x <= COLLISION_DETECT_FREQUENCY)
                     {
-                        // console.log ("Colliding left!");
-                        // correct collision
-                        this.position.x = bxmax+this.width/2;
-                        // ensure we aren't still moving in this direction
-                        this.velocity.x = 0;
+                        x = this.position.x;
+                    }
+                    let [block_xi, block_yi, block_zi] = convert_world_to_block_index (x-this.width/2, this.position.y-BLOCK_WIDTH/2, this.position.z);
+                    let block_type = world.get_block_type (block_xi, block_yi, block_zi);
+                    if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                    {
+                        let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB_from_pos (createVector (x, this.position.y, this.position.z));
+                        let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
+                        let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                        if (is_colliding)
+                        {
+                            // console.log ("Colliding left!");
+                            // correct collision
+                            this.position.x = bxmax+this.width/2;
+                            // ensure we aren't still moving in this direction
+                            this.velocity.x = 0;
+                            // found a collision in this direction, we can stop looking
+                            break;
+                        }
                     }
                 }
+            }
+            // check right direction (if we moved right)
+            if (prev_position.x < this.position.x)
+            {
                 // check right
-                [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x+this.width/2, this.position.y-BLOCK_WIDTH/2, this.position.z);
-                block_type = world.get_block_type (block_xi, block_yi, block_zi);
-                if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                for (let x = prev_position.x; x <= this.position.x; x += COLLISION_DETECT_FREQUENCY)
                 {
-                    let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
-                    let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
-                    let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
-                    if (is_colliding)
+                    // if we are close enough to the end position,
+                    // then just check the exact position
+                    if (this.position.x - x <= COLLISION_DETECT_FREQUENCY)
                     {
-                        // console.log ("Colliding right!");
-                        // correct collision
-                        this.position.x = bxmin-this.width/2;
-                        // ensure we aren't still moving in this direction
-                        this.velocity.x = 0;
+                        x = this.position.x;
+                    }
+                    let [block_xi, block_yi, block_zi] = convert_world_to_block_index (x+this.width/2, this.position.y-BLOCK_WIDTH/2, this.position.z);
+                    let block_type = world.get_block_type (block_xi, block_yi, block_zi);
+                    if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                    {
+                        let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB_from_pos (createVector (x, this.position.y, this.position.z));
+                        let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
+                        let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                        if (is_colliding)
+                        {
+                            // console.log ("Colliding right!");
+                            // correct collision
+                            this.position.x = bxmin-this.width/2;
+                            // ensure we aren't still moving in this direction
+                            this.velocity.x = 0;
+                            // found a collision in this direction, we can stop looking
+                            break;
+                        }
                     }
                 }
             }
     
-            // check Y direction if we moved in y direction
+            // check down direction (if we moved down)
+            // y increases going down
             this.is_falling = true;
-            if (prev_position.y != this.position.y)
+            if (prev_position.y < this.position.y)
             {
                 // check down
-                let [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x, this.position.y, this.position.z);
-                let block_type = world.get_block_type (block_xi, block_yi, block_zi);
-                if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                // check multiple points along path
+                // bc the player could have traveled far between frames
+                for (let y = prev_position.y; y <= this.position.y; y += COLLISION_DETECT_FREQUENCY)
                 {
-                    let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
-                    let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
-                    let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
-                    if (is_colliding)
+                    // if we are close enough to the end position,
+                    // then just check the exact position
+                    if (this.position.y - y <= COLLISION_DETECT_FREQUENCY)
                     {
-                        // console.log ("Colliding down!");
-                        // correct collision
-                        this.position.y = bymax;
-                        // ensure we aren't still moving in this direction
-                        this.velocity.y = 0;
-                        // since we collided with the ground, we are no longer falling
-                        this.is_falling = false;
+                        y = this.position.y;
                     }
-                }
-                // check up
-                [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x, this.position.y-this.height, this.position.z);
-                block_type = world.get_block_type (block_xi, block_yi, block_zi);
-                if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
-                {
-                    let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
-                    let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
-                    let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
-                    if (is_colliding)
+                    // determine block type at this position
+                    let [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x, y, this.position.z);
+                    let block_type = world.get_block_type (block_xi, block_yi, block_zi);
+                    if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
                     {
-                        // console.log ("Colliding up!");
-                        // correct collision
-                        this.position.y = bymin+this.height+0.1; // add 0.1 extra padding due to camera
-                        // ensure we aren't still moving in this direction
-                        this.velocity.y = 0;
+                        let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB_from_pos (createVector (this.position.x, y, this.position.z));
+                        let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
+                        let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                        if (is_colliding)
+                        {
+                            // console.log ("Colliding down!");
+                            // correct collision
+                            this.position.y = bymax;
+                            // ensure we aren't still moving in this direction
+                            this.velocity.y = 0;
+                            // since we collided with the ground, we are no longer falling
+                            this.is_falling = false;
+                            // found a collision in this direction, we can stop looking
+                            break;
+                        }
                     }
                 }
             }
-    
-            // check Z direction
-            if (prev_position.z != this.position.z)
+            // check up (if we moved up)
+            // y decreases going up
+            if (prev_position.y > this.position.y)
             {
-                // check forward
-                let [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x, this.position.y-BLOCK_WIDTH/2, this.position.z+this.width/2);
-                let block_type = world.get_block_type (block_xi, block_yi, block_zi);
-                if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                // check up
+                // check multiple points along path
+                // bc the player could have traveled far between frames
+                for (let y = prev_position.y; y >= this.position.y; y -= COLLISION_DETECT_FREQUENCY)
                 {
-                    let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
-                    let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
-                    let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
-                    if (is_colliding)
+                    // if we are close enough to the end position,
+                    // then just check the exact position
+                    if (y - this.position.y <= COLLISION_DETECT_FREQUENCY)
                     {
-                        // console.log ("Colliding forward!");
-                        // correct collision
-                        this.position.z = bzmin-this.width/2;
-                        // ensure we aren't still moving in this direction
-                        this.velocity.z = 0;
+                        y = this.position.y;
+                    }
+                    let [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x, y-this.height, this.position.z);
+                    let block_type = world.get_block_type (block_xi, block_yi, block_zi);
+                    if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                    {
+                        let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB_from_pos (createVector (this.position.x, y, this.position.z));
+                        let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
+                        let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                        if (is_colliding)
+                        {
+                            // console.log ("Colliding up!");
+                            // correct collision
+                            this.position.y = bymin+this.height+0.1; // add 0.1 extra padding due to camera
+                            // ensure we aren't still moving in this direction
+                            this.velocity.y = 0;
+                            // found a collision in this direction, we can stop looking
+                            break;
+                        }
                     }
                 }
-                // check back
-                [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x, this.position.y-BLOCK_WIDTH/2, this.position.z-this.width/2);
-                block_type = world.get_block_type (block_xi, block_yi, block_zi);
-                if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+            }
+            // check forward (if we moved forward)
+            if (prev_position.z < this.position.z)
+            {
+                // check forward
+                // check multiple points along path
+                // bc the player could have traveled far between frames
+                for (let z = prev_position.z; z <= this.position.z; z += COLLISION_DETECT_FREQUENCY)
                 {
-                    let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB ();
-                    let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
-                    let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
-                    if (is_colliding)
+                    // if we are close enough to the end position,
+                    // then just check the exact position
+                    if (this.position.z - z <= COLLISION_DETECT_FREQUENCY)
                     {
-                        // console.log ("Colliding back!");
-                        // correct collision
-                        this.position.z = bzmax+this.width/2;
-                        // ensure we aren't still moving in this direction
-                        this.velocity.z = 0;
+                        z = this.position.z;
+                    }
+                    let [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x, this.position.y-BLOCK_WIDTH/2, z+this.width/2);
+                    let block_type = world.get_block_type (block_xi, block_yi, block_zi);
+                    if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                    {
+                        let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB_from_pos (createVector (this.position.x, this.position.y, z));
+                        let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
+                        let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                        if (is_colliding)
+                        {
+                            // console.log ("Colliding forward!");
+                            // correct collision
+                            this.position.z = bzmin-this.width/2;
+                            // ensure we aren't still moving in this direction
+                            this.velocity.z = 0;
+                            // found a collision in this direction, we can stop looking
+                            break;
+                        }
+                    }
+                }
+            }
+            // check back (if we moved back)
+            if (prev_position.z > this.position.z)
+            {
+                // check back
+                // check multiple points along path
+                // bc the player could have traveled far between frames
+                for (let z = prev_position.z; z >= this.position.z; z -= COLLISION_DETECT_FREQUENCY)
+                {
+                    // if we are close enough to the end position,
+                    // then just check the exact position
+                    if (z - this.position.z <= COLLISION_DETECT_FREQUENCY)
+                    {
+                        z = this.position.z;
+                    }
+                    let [block_xi, block_yi, block_zi] = convert_world_to_block_index (this.position.x, this.position.y-BLOCK_WIDTH/2, z-this.width/2);
+                    let block_type = world.get_block_type (block_xi, block_yi, block_zi);
+                    if (block_type != null && block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER)
+                    {
+                        let [axmin, axmax, aymin, aymax, azmin, azmax] = this.get_AABB_from_pos (createVector (this.position.x, this.position.y, z));
+                        let [bxmin, bxmax, bymin, bymax, bzmin, bzmax] = world.get_block_AABB (block_xi, block_yi, block_zi);
+                        let is_colliding = AABB_collision (axmin, axmax, aymin, aymax, azmin, azmax, bxmin, bxmax, bymin, bymax, bzmin, bzmax);
+                        if (is_colliding)
+                        {
+                            // console.log ("Colliding back!");
+                            // correct collision
+                            this.position.z = bzmax+this.width/2;
+                            // ensure we aren't still moving in this direction
+                            this.velocity.z = 0;
+                            // found a collision in this direction, we can stop looking
+                            break;
+                        }
                     }
                 }
             } 
@@ -564,64 +668,6 @@ class Player
             p_prev = p;
         }
     }
-
-    // **assumes that player wasn't already colliding with a block
-    // clamp_collisions_y (prev_position, next_position)
-    // {
-    //     // Case A: hasnt moved up or down
-    //     if (prev_position.y == next_position.y)
-    //         // we havent moved so no need to check collisions
-    //         return;
-
-    //     // Case B: traveling up
-    //     // y axis decreases in value as you go up (gets more negative)
-    //     else if (prev_position.y < next_position.y)
-    //     {
-    //         // Case 1: prev is above WORLD_HEIGHT
-    //         if (prev_position.y < WORLD_HEIGHT*BLOCK_WIDTH)
-    //             // we are above the world and traveling further up
-    //             // so we shouldnt run into any obstacles
-    //             // ascend away!
-    //             return;
-                
-    //         // Case 2: prev is below WORLD_HEIGHT
-    //         if (prev_position.y > WORLD_HEIGHT*BLOCK_WIDTH)
-    //         {
-    //             // we are below the world and flying up
-    //             // so we need to make sure we don't bump 
-    //             // into the bottom of the map or anything higher up.
-    //             let [block_xi, block_yi, block_zi] = convert_world_to_block (prev_position.x, 0, prev_position.z);
-    //             while (block_yi < WORLD_HEIGHT)
-    //             {
-    //                 let block_y_bottom = block_yi * BLOCK_WIDTH;
-    //                 let block_type = get_block (block_xi, block_yi, block_zi);
-    //                 let is_solid = block_type != BLOCK_ID_AIR && block_type != BLOCK_ID_WATER;
-    //                 // we need to make sure the top of the player is below
-    //                 let next_position_y_top = next_position.y - this.height; // up is negative
-    //                 let is_next_position_past_block = next_position_y_top <= block_y_bottom;
-    //                 if (is_solid && is_next_position_past_block)
-    //                 {
-    //                     // player should have collided with this block
-    //                     // reset position to this block
-    //                     return createVector (next_position.x, block_y_bottom+this.height, next_position.z);
-    //                 }
-    //                 // repeat
-    //                 --block_yi;
-    //             }
-    //         }
-
-    //         // Case 3: prev is within WORLD_HEIGHT
-
-
-
-    //     }
-
-    //     // Case C: traveling down
-    //     else if (prev_position.y > next_position.y)
-    //     {
-
-    //     }
-    // }
 
     // draws the player's model
     draw ()

@@ -456,8 +456,9 @@ function draw_debug_overlay ()
     let block_type = world.get_block_type (block_xi, block_yi, block_zi);
     let block_type_str = BLOCK_ID_STR_MAP.get (block_type);
     let pointing_at_block = current_pointed_at_block == null ? "null" : `${current_pointed_at_block.x}, ${current_pointed_at_block.y}, ${current_pointed_at_block.z}`;
-    let pointing_at_block_type = current_pointed_at_block == null ? "null" : BLOCK_ID_STR_MAP.get (world.get_block_type (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z));
-    let pointing_at_block_break_time = current_pointed_at_block == null ? "null" : map_block_id_to_block_static_data.get (world.get_block_type (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z)).mine_duration;
+    let pointing_at_block_type = current_pointed_at_block == null ? BLOCK_ID_NONE : world.get_block_type (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
+    let pointing_at_block_type_str = current_pointed_at_block == null ? "null" : BLOCK_ID_STR_MAP.get (pointing_at_block_type);
+    let pointing_at_block_break_time = (current_pointed_at_block == null || pointing_at_block_type == BLOCK_ID_NONE || pointing_at_block_type == null) ? "null" : map_block_id_to_block_static_data.get (pointing_at_block_type).mine_duration;
     let pointing_at_block_time_left = g_block_being_mined_delay;
     // draw debug text
     text (`FPS: ${fps.toFixed (0)}, Ave: ${fps_ave.toFixed (0)}\n` +
@@ -473,7 +474,7 @@ function draw_debug_overlay ()
         `block id:   ${block_type_str}\n` +
         `draw_style: ${DRAW_STYLE_STR_MAP.get (current_draw_style)}\n` +
         `facing block: ${pointing_at_block}\n` +
-        `facing block type: ${pointing_at_block_type}\n` +
+        `facing block type: ${pointing_at_block_type_str}\n` +
         `facing block break time (s): ${pointing_at_block_break_time}\n` +
         `facing block time left (s): ${pointing_at_block_time_left.toFixed (2)}\n` +
         `control mode: ${PLAYER_CONTROL_MODE_STR_MAP.get (player.control_mode)}\n` +

@@ -10,7 +10,7 @@ const CHUNK_SIZE = 16;
 // this should be 65
 const SEA_LEVEL = 16
 // this should be 256
-const WORLD_HEIGHT = 32;
+const WORLD_HEIGHT = 16;
 const CHUNK_STACK_COUNT = WORLD_HEIGHT / CHUNK_SIZE;
 
 let should_chunks_follow_player = true;
@@ -43,7 +43,7 @@ class World
         this.loaded_chunks_map.set ("1,1", new ChunkStack (1, 1));
     
         this.loaded_chunks_map.set ("-1,0", new ChunkStack (-1, 0));
-        
+
         this.loaded_chunks_map.set ("-1,1", new ChunkStack (-1, 1));
 
         this.loaded_chunks_map.set ("-1,-1", new ChunkStack (-1, -1));
