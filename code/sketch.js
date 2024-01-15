@@ -56,6 +56,10 @@ let texture_log_top;
 let texture_leaves;
 let texture_glass;
 let texture_stone_pickaxe;
+let texture_stone_shovel;
+let texture_stone_axe;
+let texture_stone_hoe;
+let texture_stone_sword;
 let texture_block_break_0;
 let texture_block_break_1;
 let texture_block_break_2;
@@ -135,6 +139,7 @@ function preload ()
     overlay_font = loadFont ("assets/fonts/Inconsolata/Inconsolata.otf");
     texture_atlas = loadImage ("assets/block_texture_atlas.png");
 
+    // item textures
     texture_null       = loadImage ("assets/texture_null_64x.png");
     texture_dirt       = loadImage ("assets/texture_dirt_64x.png");
     texture_grass_side = loadImage ("assets/texture_grass_side_64x.png");
@@ -147,6 +152,12 @@ function preload ()
     texture_leaves     = loadImage ("assets/texture_leaves_64x.png");
     texture_glass      = loadImage ("assets/texture_glass_64x.png");
     texture_stone_pickaxe = loadImage ("assets/texture_stone_pickaxe_64x.png");
+    texture_stone_shovel  = loadImage ("assets/texture_stone_shovel_64x.png");
+    texture_stone_axe     = loadImage ("assets/texture_stone_axe_64x.png");
+    texture_stone_hoe     = loadImage ("assets/texture_stone_hoe_64x.png");
+    texture_stone_sword   = loadImage ("assets/texture_stone_sword_64x.png");
+
+    // block breaking textures
     texture_block_break_0 = loadImage ("assets/texture_block_break_0_64x.png");
     texture_block_break_1 = loadImage ("assets/texture_block_break_1_64x.png");
     texture_block_break_2 = loadImage ("assets/texture_block_break_2_64x.png");
@@ -169,6 +180,9 @@ function setup ()
 
     angleMode (RADIANS);
 
+    // setup block textures and other static block info
+    block_setup ();
+
     // setup player
     player = new Player ();
     graphics.perspective (radians (FOV_DEGREES), width / height, 0.1, 8000);
@@ -177,9 +191,6 @@ function setup ()
 
     // Initialize the world
     world = new World ();
-
-    // setup block textures and other static block info
-    block_setup ();
 
     // start the game paused
     is_game_paused = true;
@@ -263,6 +274,27 @@ function draw ()
                 // creative mode should wait until the mouse is released before it can break another block
                 if (current_player_mode == PLAYER_MODE_CREATIVE)
                     g_waiting_for_mouse_release = true;
+                // consume 1 usage for the current tool (if a tool was used)
+                let hand_item_stack = player.hotbar.slots[current_hotbar_index];
+                let has_item = hand_item_stack != null;
+                // ensure player is holding an item
+                if (has_item)
+                {
+                    let hand_item_static_data = map_block_id_to_block_static_data.get (hand_item_stack.item.item_id);
+                    let is_item_tool = hand_item_static_data.tool_type != TOOL_NONE;
+                    // ensure player's held item is a tool
+                    if (is_item_tool)
+                    {
+                        // consume 1 usage of the item
+                        hand_item_stack.item.usages--;
+                        // ensure item is deleted if it does not have anymore usages
+                        if (hand_item_stack.item.usages <= 0)
+                        {
+                            // remove item since it is broken/used up
+                            player.hotbar.slots[current_hotbar_index] = null;
+                        }
+                    }
+                }
             }
             // keep breaking block IFF we are still facing it
             else if (current_pointed_at_block != null && current_pointed_at_block.equals (g_block_being_mined))
@@ -703,23 +735,95 @@ function keyPressed ()
     }
     // cycle through hotbar
     if (keyCode == '1'.charCodeAt (0))
+    {
         current_hotbar_index = 0;
+        // reset currently mined block
+        // bc we could have changed tools and
+        // 1. we want a faster|slower tool to use its mine speed
+        // 2. we dont want users to mine part of the way with a tool
+        //    and finish without a tool (avoiding using tool durability)
+        g_block_being_mined = null;
+    }
     else if (keyCode == '2'.charCodeAt (0))
+    {
         current_hotbar_index = 1;
+        // reset currently mined block
+        // bc we could have changed tools and
+        // 1. we want a faster|slower tool to use its mine speed
+        // 2. we dont want users to mine part of the way with a tool
+        //    and finish without a tool (avoiding using tool durability)
+        g_block_being_mined = null;
+    }
     else if (keyCode == '3'.charCodeAt (0))
+    {
         current_hotbar_index = 2;
+        // reset currently mined block
+        // bc we could have changed tools and
+        // 1. we want a faster|slower tool to use its mine speed
+        // 2. we dont want users to mine part of the way with a tool
+        //    and finish without a tool (avoiding using tool durability)
+        g_block_being_mined = null;
+    }
     else if (keyCode == '4'.charCodeAt (0))
+    {
         current_hotbar_index = 3;
+        // reset currently mined block
+        // bc we could have changed tools and
+        // 1. we want a faster|slower tool to use its mine speed
+        // 2. we dont want users to mine part of the way with a tool
+        //    and finish without a tool (avoiding using tool durability)
+        g_block_being_mined = null;
+    }
     else if (keyCode == '5'.charCodeAt (0))
+    {
         current_hotbar_index = 4;
+        // reset currently mined block
+        // bc we could have changed tools and
+        // 1. we want a faster|slower tool to use its mine speed
+        // 2. we dont want users to mine part of the way with a tool
+        //    and finish without a tool (avoiding using tool durability)
+        g_block_being_mined = null;
+    }
     else if (keyCode == '6'.charCodeAt (0))
+    {
         current_hotbar_index = 5;
+        // reset currently mined block
+        // bc we could have changed tools and
+        // 1. we want a faster|slower tool to use its mine speed
+        // 2. we dont want users to mine part of the way with a tool
+        //    and finish without a tool (avoiding using tool durability)
+        g_block_being_mined = null;
+    }
     else if (keyCode == '7'.charCodeAt (0))
+    {
         current_hotbar_index = 6;
+        // reset currently mined block
+        // bc we could have changed tools and
+        // 1. we want a faster|slower tool to use its mine speed
+        // 2. we dont want users to mine part of the way with a tool
+        //    and finish without a tool (avoiding using tool durability)
+        g_block_being_mined = null;
+    }
     else if (keyCode == '8'.charCodeAt (0))
+    {
         current_hotbar_index = 7;
+        // reset currently mined block
+        // bc we could have changed tools and
+        // 1. we want a faster|slower tool to use its mine speed
+        // 2. we dont want users to mine part of the way with a tool
+        //    and finish without a tool (avoiding using tool durability)
+        g_block_being_mined = null;
+    }
     else if (keyCode == '9'.charCodeAt (0))
+    {
         current_hotbar_index = 8;
+        // reset currently mined block
+        // bc we could have changed tools and
+        // 1. we want a faster|slower tool to use its mine speed
+        // 2. we dont want users to mine part of the way with a tool
+        //    and finish without a tool (avoiding using tool durability)
+        g_block_being_mined = null;
+    }
     
     // drop one item from hand
     if (keyCode == KEY_Q && !keyIsDown (SHIFT) && !is_inventory_opened)
@@ -728,7 +832,8 @@ function keyPressed ()
         if (player.hotbar.slots[current_hotbar_index] != null)
         {
             // create the item that we want to drop
-            let item_to_drop = new ItemStack (new Item (player.hotbar.slots[current_hotbar_index].get_item_type ()), 1);
+            // we take a copy so that item data like durability persists
+            let item_to_drop = new ItemStack (player.hotbar.slots[current_hotbar_index].item.copy (), 1);
             // decrement the item stack in the player's hand
             player.hotbar.slots[current_hotbar_index].amount--;
             // remove item stack if no more items
@@ -873,6 +978,14 @@ function mouseWheel (event)
             if (current_hotbar_index > 8)
                 current_hotbar_index = 0;
         }
+        // reset currently mined block
+        // bc we could have changed tools and
+        // 1. we want a faster|slower tool to use its mine speed
+        // 2. we dont want users to mine part of the way with a tool
+        //    and finish without a tool (avoiding using tool durability)
+        // (this is technically not possible to scroll + click on a 
+        //    trackpad but for a real mouse it might)
+        g_block_being_mined = null;
     }
     // scroll down
     else if (event.delta < 0)
@@ -884,6 +997,14 @@ function mouseWheel (event)
             if (current_hotbar_index < 0)
                 current_hotbar_index = 8;
         }
+        // reset currently mined block
+        // bc we could have changed tools and
+        // 1. we want a faster|slower tool to use its mine speed
+        // 2. we dont want users to mine part of the way with a tool
+        //    and finish without a tool (avoiding using tool durability)
+        // (this is technically not possible to scroll + click on a 
+        //    trackpad but for a real mouse it might)
+        g_block_being_mined = null;
     }
 }
 

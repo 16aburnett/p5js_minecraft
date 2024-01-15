@@ -15,7 +15,14 @@ class Item
     {
         this.item_id = item_id;
         // for tools that depleat over uses
-        this.usages = 0;
+        this.usages = map_block_id_to_block_static_data.get (this.item_id).tool_durability_max;
+    }
+
+    copy ()
+    {
+        let item_copy = new Item (this.item_id);
+        item_copy.usages = this.usages;
+        return item_copy;
     }
 
     // draws the item's icon
@@ -47,13 +54,42 @@ class ItemStack
     {
         // draw item icon
         this.item.draw (x, y, width);
-        // draw stack count
-        fill (255);
-        stroke (0);
-        strokeWeight (5);
-        textSize (width/2);
-        textAlign (RIGHT, BOTTOM);
-        text (this.amount.toString (), x + width, y + width);
+        // draw item durability bar (if this item has a durability)
+        let has_usages = this.item.usages != null;
+        let durability_max = map_block_id_to_block_static_data.get (this.item.item_id).tool_durability_max;
+        let durability_current = this.item.usages;
+        let was_used_at_least_once = durability_current < durability_max;
+        if (has_usages && was_used_at_least_once)
+        {
+            // draw border
+            let padding = 2;
+            let durability_bar_height = 8;
+            let durability_bar_width = width - 2*padding;
+            let x_bar = x + padding;
+            let y_bar = y + width - durability_bar_height - padding;
+            fill (0);
+            noStroke ();
+            rect (x_bar, y_bar, durability_bar_width, durability_bar_height);
+            // draw red bar to show amount broken
+            fill (255, 0, 0);
+            noStroke ();
+            rect (x_bar+padding, y_bar+padding, durability_bar_width-2*padding, durability_bar_height-2*padding);
+            // draw green bar to show amount left
+            fill (0, 255, 0);
+            noStroke ();
+            let progress = map (durability_current, 0, durability_max, 0, durability_bar_width-2*padding);
+            rect (x_bar+padding, y_bar+padding, progress, durability_bar_height-2*padding);
+        }
+        // draw stack count if theres more than one item
+        if (this.amount > 1)
+        {
+            fill (255);
+            stroke (0);
+            strokeWeight (5);
+            textSize (width/2);
+            textAlign (RIGHT, BOTTOM);
+            text (this.amount.toString (), x + width, y + width);
+        }
     }
 }
 

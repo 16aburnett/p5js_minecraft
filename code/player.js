@@ -72,14 +72,16 @@ class Player
         // player's hotbar
         this.hotbar = new Inventory (1, 9);
         this.hotbar.add_item (new ItemStack (new Item (ITEM_ID_STONE_PICKAXE), 1));
-        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_GRASS), 64));
-        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_DIRT), 64));
-        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_STONE), 64));
-        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_SAND), 64));
-        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_WATER), 64));
+        this.hotbar.add_item (new ItemStack (new Item (ITEM_ID_STONE_SHOVEL), 1));
+        this.hotbar.add_item (new ItemStack (new Item (ITEM_ID_STONE_AXE), 1));
+        this.hotbar.add_item (new ItemStack (new Item (ITEM_ID_STONE_HOE), 1));
+        this.hotbar.add_item (new ItemStack (new Item (ITEM_ID_STONE_SWORD), 1));
         this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_LOG), 64));
         this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_LEAVES), 64));
         this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_GLASS), 64));
+        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_DIRT), 64));
+        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_STONE), 64));
+        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_SAND), 64));
         
         this.control_mode = PLAYER_CONTROL_MODE_NORMAL;
     }
