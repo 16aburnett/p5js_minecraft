@@ -50,6 +50,23 @@ this is good material
     - for loading chunks
     - idk about this, just an idea
 
+1. Instancing
+    - instancing seems to refer to the idea of building the world once
+    and drawing the build world each frame which takes out the computation of
+    building the world each frame
+    - the world is drawn way more than it is updated so let's make updating
+    the world slower at the benefit of speeding up the world
+    - we can do this by building a chunk's blocks into a single geometry
+    - and then call p5js's model() function when we want to show it
+    - we need to figure out how to texture the geometry
+    - we have to throw out optimizations that take player position/camera into account
+    like frustum culling and possibly backface culling - maybe we wont need them?
+2. greedy meshing
+    - this is where we combine adjacent faces of blocks to build bigger
+    quads to reduce the overall amount of quads (or triangles)
+    - the only issue I have with this is that I do not know how we would texture
+    the separate blocks if we merge quads.
+
 
 - push/pop = yikes
     - commented out the block drawing code so that we only do translate/rotate and push/pop
@@ -137,3 +154,8 @@ which causes the textures to be very blurry
     - we can still store the 16x16 images for editing, and use the 64x versions in game
 - unfortunately, i couldnt get texture atlases working reliably
     - i got it working, but it is SO. SLOW.
+
+
+# Lighting
+- calculate light from sky (spreads bfs?)
+- calculate light from light-emitting blocks
