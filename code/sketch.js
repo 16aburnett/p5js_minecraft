@@ -137,7 +137,7 @@ let g_num_drawn_faces = 0;
 function preload ()
 {
     overlay_font = loadFont ("assets/fonts/Inconsolata/Inconsolata.otf");
-    texture_atlas = loadImage ("assets/block_texture_atlas.png");
+    texture_atlas = loadImage ("assets/block_texture_atlas_32x.png");
 
     // item textures
     texture_null       = loadImage ("assets/texture_null_64x.png");
@@ -225,6 +225,9 @@ function draw ()
         g_num_culled_faces_hidden = 0;
         g_num_drawn_faces = 0;
 
+        // advance chunk build delay counter
+        current_chunk_build_delay -= 1.0/frameRate ();
+
         graphics.clear ();
         // this resets certain values modified by transforms and lights
         // without this, the performance seems to significantly diminish over time
@@ -234,7 +237,7 @@ function draw ()
         graphics.background (150, 200, 255);
         
         // setup light from Sun
-        graphics.ambientLight (80, 80, 80);
+        graphics.ambientLight (128, 128, 128);
         graphics.directionalLight (128, 128, 128, 0.5, -1, -0.5);
 
         process_key_input ();
@@ -556,6 +559,7 @@ function draw_controls ()
                `drop all of current item - Shift+Q\n` +
                             `toggle debug info - G\n` +
            `toggle chunk load following player - C\n` +
+                                `reload chunks - V\n` +
                             `cycle player mode - L\n` +
                            `cycle control mode - P\n` +
                              `cycle draw style - T\n` +
@@ -732,6 +736,12 @@ function keyPressed ()
     if (keyCode == "C".charCodeAt (0))
     {
         should_chunks_follow_player = !should_chunks_follow_player;
+    }
+    // toggle chunk loading following player or not
+    // this allows us to stop the following to examine the sides of a chunk
+    if (keyCode == "V".charCodeAt (0))
+    {
+        world.reload_chunks ();
     }
     // cycle through hotbar
     if (keyCode == '1'.charCodeAt (0))

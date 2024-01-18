@@ -52,8 +52,8 @@ this is good material
 
 1. Instancing
     - instancing seems to refer to the idea of building the world once
-    and drawing the build world each frame which takes out the computation of
-    building the world each frame
+    and drawing a copy of that world as one entity.
+    - drawing each triangle is a single draw call and draw calls are expensive so bundling into one geometry cuts back significantly
     - the world is drawn way more than it is updated so let's make updating
     the world slower at the benefit of speeding up the world
     - we can do this by building a chunk's blocks into a single geometry
@@ -61,6 +61,7 @@ this is good material
     - we need to figure out how to texture the geometry
     - we have to throw out optimizations that take player position/camera into account
     like frustum culling and possibly backface culling - maybe we wont need them?
+    - Unfortunately, to get textures, I need to use beginShape + vertex which seems to be very slow so when we need to rebuild a chunk, it will lag the game unless we do something like async or threading and draw the updated chunk once it is built (and retain the previous chunk until then)
 2. greedy meshing
     - this is where we combine adjacent faces of blocks to build bigger
     quads to reduce the overall amount of quads (or triangles)

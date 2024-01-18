@@ -143,7 +143,7 @@ class Player
     {
         this.pan_amount += angle;
         // wrap angle if we exceed 360 degrees
-        this.pan_amount = this.pan_amount % radians (360);
+        this.pan_amount = this.pan_amount % TWO_PI;
     }
 
     // rotates the player's head by it's local x axis

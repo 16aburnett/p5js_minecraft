@@ -50,9 +50,10 @@ const DRAW_STYLE_WIREFRAME        = 1;
 const DRAW_STYLE_FILL             = 2;
 const DRAW_STYLE_FILL_WIREFRAME   = 3;
 const DRAW_STYLE_TEXTURED         = 4; // texture atlas + vertex shape - super slow
-const DRAW_STYLE_NONE             = 5; // texture atlas + vertex shape
-const DRAW_STYLE_MAX              = 6;
-let current_draw_style = 0;
+const DRAW_STYLE_NONE             = 5;
+const DRAW_STYLE_INSTANCED        = 6; // texture atlas + vertex shape (happens once but drawing the instance is very fast)
+const DRAW_STYLE_MAX              = 7;
+let current_draw_style = DRAW_STYLE_INSTANCED;
 const DRAW_STYLE_STR_MAP = new Map ();
 DRAW_STYLE_STR_MAP.set (DRAW_STYLE_TEXTURED_PLANE, "normal textured plane");
 DRAW_STYLE_STR_MAP.set (DRAW_STYLE_WIREFRAME, "wireframe");
@@ -60,9 +61,10 @@ DRAW_STYLE_STR_MAP.set (DRAW_STYLE_FILL, "simple fill");
 DRAW_STYLE_STR_MAP.set (DRAW_STYLE_FILL_WIREFRAME, "simple fill + wireframe");
 DRAW_STYLE_STR_MAP.set (DRAW_STYLE_TEXTURED, "texture atlas + manual vertex planes (super slow)");
 DRAW_STYLE_STR_MAP.set (DRAW_STYLE_NONE, "none");
+DRAW_STYLE_STR_MAP.set (DRAW_STYLE_INSTANCED, "instanced");
 
 // The size of each texture in the texture atlas
-const TEXTURE_WIDTH = 16;
+const TEXTURE_WIDTH = 16*32;
 
 // to save space, we only store block_ids to describe the world
 // and so other static block information like textures is stored once 

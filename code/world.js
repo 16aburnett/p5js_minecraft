@@ -8,10 +8,12 @@
 // a chunk is a CHUNK_SIZE^3 subset of the full map
 const CHUNK_SIZE = 16;
 // this should be 65
-const SEA_LEVEL = 16
+const SEA_LEVEL = 64;
 // this should be 256
-const WORLD_HEIGHT = 16;
+const WORLD_HEIGHT = 128;
 const CHUNK_STACK_COUNT = WORLD_HEIGHT / CHUNK_SIZE;
+
+const CHUNK_RENDER_RADIUS = 6;
 
 let should_chunks_follow_player = true;
 
@@ -35,22 +37,6 @@ class World
 
         // initialize the chunk map
         this.loaded_chunks_map.set ("0,0", new ChunkStack (0, 0));
-
-        this.loaded_chunks_map.set ("0,1", new ChunkStack (0, 1));
-
-        this.loaded_chunks_map.set ("1,0", new ChunkStack (1, 0));
-
-        this.loaded_chunks_map.set ("1,1", new ChunkStack (1, 1));
-    
-        this.loaded_chunks_map.set ("-1,0", new ChunkStack (-1, 0));
-
-        this.loaded_chunks_map.set ("-1,1", new ChunkStack (-1, 1));
-
-        this.loaded_chunks_map.set ("-1,-1", new ChunkStack (-1, -1));
-
-        this.loaded_chunks_map.set ("0,-1", new ChunkStack (0, -1));
-
-        this.loaded_chunks_map.set ("1,-1", new ChunkStack (1, -1));
     }
     
     // returns the block type at the given block indices.
@@ -126,6 +112,9 @@ class World
 
         // set block id
         this.loaded_chunks_map.get (`${chunk_xi},${chunk_zi}`).chunks[chunk_yi].blocks[chunk_block_xi][chunk_block_yi][chunk_block_zi] = block_id;
+
+        // We now need to update the chunk's geometry so it reflects the new block
+        this.loaded_chunks_map.get (`${chunk_xi},${chunk_zi}`).chunks[chunk_yi].reload_chunk ();
     }
 
     delete_block_at (block_xi, block_yi, block_zi)
@@ -144,6 +133,80 @@ class World
 
         // remove block (aka set to air)
         this.loaded_chunks_map.get (`${chunk_xi},${chunk_zi}`).chunks[chunk_yi].blocks[chunk_block_xi][chunk_block_yi][chunk_block_zi] = BLOCK_ID_AIR;
+
+        // We now need to update the chunk's geometry so it reflects the new block
+        this.loaded_chunks_map.get (`${chunk_xi},${chunk_zi}`).chunks[chunk_yi].reload_chunk ();
+
+        // Edge case: if block was on the edge of a chunk
+        // then the next chunk will have a hole in its geometry
+        // so update neighbor chunks if needed.
+        // front
+        if (chunk_block_zi == CHUNK_SIZE-1)
+        {
+            // ensure there is a loaded chunk in this dir
+            if (this.loaded_chunks_map.has (`${chunk_xi},${chunk_zi+1}`) && chunk_yi < this.loaded_chunks_map.get (`${chunk_xi},${chunk_zi+1}`).chunks.length)
+            {
+                // reload chunk to avoid holes
+                this.loaded_chunks_map.get (`${chunk_xi},${chunk_zi+1}`).chunks[chunk_yi].reload_chunk ();
+            }
+        }
+        // back
+        if (chunk_block_zi == 0)
+        {
+            // ensure there is a loaded chunk in this dir
+            if (this.loaded_chunks_map.has (`${chunk_xi},${chunk_zi-1}`) && chunk_yi < this.loaded_chunks_map.get (`${chunk_xi},${chunk_zi-1}`).chunks.length)
+            {
+                // reload chunk to avoid holes
+                this.loaded_chunks_map.get (`${chunk_xi},${chunk_zi-1}`).chunks[chunk_yi].reload_chunk ();
+            }
+        }
+        // left
+        if (chunk_block_xi == 0)
+        {
+            // ensure there is a loaded chunk in this dir
+            if (this.loaded_chunks_map.has (`${chunk_xi-1},${chunk_zi}`) && chunk_yi < this.loaded_chunks_map.get (`${chunk_xi-1},${chunk_zi}`).chunks.length)
+            {
+                // reload chunk to avoid holes
+                this.loaded_chunks_map.get (`${chunk_xi-1},${chunk_zi}`).chunks[chunk_yi].reload_chunk ();
+            }
+        }
+        // right
+        if (chunk_block_xi == CHUNK_SIZE-1)
+        {
+            // ensure there is a loaded chunk in this dir
+            if (this.loaded_chunks_map.has (`${chunk_xi+1},${chunk_zi}`) && chunk_yi < this.loaded_chunks_map.get (`${chunk_xi+1},${chunk_zi}`).chunks.length)
+            {
+                // reload chunk to avoid holes
+                this.loaded_chunks_map.get (`${chunk_xi+1},${chunk_zi}`).chunks[chunk_yi].reload_chunk ();
+            }
+        }
+        // top
+        if (chunk_block_yi == CHUNK_SIZE-1)
+        {
+            // ensure there is a loaded chunk in this dir
+            if (this.loaded_chunks_map.has (`${chunk_xi},${chunk_zi}`) && chunk_yi+1 < this.loaded_chunks_map.get (`${chunk_xi},${chunk_zi}`).chunks.length)
+            {
+                // reload chunk to avoid holes
+                this.loaded_chunks_map.get (`${chunk_xi},${chunk_zi}`).chunks[chunk_yi+1].reload_chunk ();
+            }
+        }
+        // bottom
+        if (chunk_block_yi == 0)
+        {
+            // ensure there is a loaded chunk in this dir
+            if (this.loaded_chunks_map.has (`${chunk_xi},${chunk_zi}`) && 0 <= chunk_yi-1 && chunk_yi-1 < this.loaded_chunks_map.get (`${chunk_xi},${chunk_zi}`).chunks.length)
+            {
+                // reload chunk to avoid holes
+                this.loaded_chunks_map.get (`${chunk_xi},${chunk_zi}`).chunks[chunk_yi-1].reload_chunk ();
+            }
+        }
+        
+    }
+
+    reload_chunks ()
+    {
+        for (let chunk_stack of this.loaded_chunks_map.values ())
+            chunk_stack.reload_chunks ();
     }
 
     update ()
@@ -186,33 +249,42 @@ class World
             }
         }
 
-        // try to load 3x3 of chunks around player
-        for (let ci = -1; ci <= 1; ++ci)
+        // ensure we are using the instanced drawing style
+        // bc any other style will not be playable with multiple chunks
+        if (current_draw_style == DRAW_STYLE_INSTANCED)
         {
-            for (let cj = -1; cj <= 1; ++cj)
+            // draw chunks in rings around the center chunk
+            for (let ring_offset = 1; ring_offset < CHUNK_RENDER_RADIUS; ++ring_offset)
             {
-                // ignore player's chunk bc we already loaded it
-                if (ci == 0 && cj == 0)
-                    continue;
-                // check if current chunk is loaded
-                if (this.loaded_chunks_map.has (`${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`))
-                    // already loaded, nothing to do
-                    null;
-                else
+                // try to load NxN of chunks around player
+                for (let ci = -ring_offset; ci <= ring_offset; ++ci)
                 {
-                    // not loaded, check if we previously loaded this chunk and it is unloaded
-                    if (this.unloaded_chunks_map.has (`${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`))
+                    for (let cj = -ring_offset; cj <= ring_offset; ++cj)
                     {
-                        // chunk was unloaded, reload it
-                        let key = `${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`;
-                        let chunk_stack = this.unloaded_chunks_map.get (key);
-                        this.loaded_chunks_map.set (key, chunk_stack);
-                        this.unloaded_chunks_map.delete (key);
-                    }
-                    // not loaded and not unloaded, unvisited chunk stack, generate new terrain
-                    else
-                    {
-                        this.loaded_chunks_map.set (`${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`, new ChunkStack (player_pos_chunk_xi+ci, player_pos_chunk_zi+cj));
+                        // ignore chunks that arent in the ring
+                        if (!(ci == -ring_offset || ci == ring_offset || cj == -ring_offset || cj == ring_offset))
+                            continue;
+                        // check if current chunk is loaded
+                        if (this.loaded_chunks_map.has (`${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`))
+                            // already loaded, nothing to do
+                            null;
+                        else
+                        {
+                            // not loaded, check if we previously loaded this chunk and it is unloaded
+                            if (this.unloaded_chunks_map.has (`${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`))
+                            {
+                                // chunk was unloaded, reload it
+                                let key = `${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`;
+                                let chunk_stack = this.unloaded_chunks_map.get (key);
+                                this.loaded_chunks_map.set (key, chunk_stack);
+                                this.unloaded_chunks_map.delete (key);
+                            }
+                            // not loaded and not unloaded, unvisited chunk stack, generate new terrain
+                            else
+                            {
+                                this.loaded_chunks_map.set (`${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`, new ChunkStack (player_pos_chunk_xi+ci, player_pos_chunk_zi+cj));
+                            }
+                        }
                     }
                 }
             }

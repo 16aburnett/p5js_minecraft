@@ -4,6 +4,9 @@
 //========================================================================
 // Globals
 
+let current_chunk_build_delay = 0.0;
+const CHUNK_BUILD_DELAY = 0.05;
+
 //========================================================================
 
 class Chunk
@@ -26,6 +29,13 @@ class Chunk
         // keeps track of if this chunk is loaded
         // we will draw this chunk only if it is loaded
         this.is_loaded = true;
+
+        // For instanced draw style
+        // this stores the prebuilt geometry of the chunk
+        // for drawing instances of the chunk rather than
+        // having a ton of draw calls.
+        this.solid_geometry = null;
+        this.transparent_geometry = null;
         
         // initialize chunk to air for now
         // [ x ][ y ][ z ]
@@ -82,6 +92,190 @@ class Chunk
 
     }
 
+    build_geometry (should_build_solid_blocks)
+    {
+        graphics.beginGeometry ();
+        // move to chunk's position
+        graphics.translate (this.x, this.y, this.z);
+
+        for (let i = 0; i < CHUNK_SIZE; ++i)
+        {
+            for (let j = 0; j < CHUNK_SIZE; ++j)
+            {
+                for (let k = 0; k < CHUNK_SIZE; ++k)
+                {
+                    // ignore if airblock
+                    let block_id = this.blocks[i][j][k];
+                    if (block_id == BLOCK_ID_AIR)
+                        continue;
+
+                    // determine if we are drawing transparent or solid blocks
+                    let is_transparent_block = map_block_id_to_block_static_data.get (block_id).is_transparent;
+                    // ignore transparent block if we are drawing solid blocks
+                    if (should_build_solid_blocks && is_transparent_block)
+                        continue;
+
+                    // ignore solid blocks if we are drawing transparent blocks
+                    if (!should_build_solid_blocks && !is_transparent_block)
+                        continue;
+                    
+                    let world_x = (this.xi * CHUNK_SIZE * BLOCK_WIDTH) + i * BLOCK_WIDTH;
+                    let world_y = -((this.yi * CHUNK_SIZE * BLOCK_WIDTH) + j * BLOCK_WIDTH); // y axis is reversed
+                    let world_z = (this.zi * CHUNK_SIZE * BLOCK_WIDTH) + k * BLOCK_WIDTH;
+                    let position_world = createVector (world_x, world_y, world_z);
+                    let block_xi = this.xi * CHUNK_SIZE + i;
+                    let block_yi = this.yi * CHUNK_SIZE + j;
+                    let block_zi = this.zi * CHUNK_SIZE + k;
+
+                    graphics.noFill ();
+                    graphics.noStroke ();
+                    // move to block's position
+                    graphics.translate (i*BLOCK_WIDTH, -j*BLOCK_WIDTH, k*BLOCK_WIDTH);
+                    
+                    // front
+                    let next_block = world.get_block_type (block_xi, block_yi, block_zi+1);
+                    let is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
+                    let are_both_blocks_water = block_id == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
+                    if (is_next_block_transparent && !are_both_blocks_water)
+                    {
+                        let texture_id_x = map_block_id_to_block_static_data.get (block_id).texture_atlas_data[TEXTURE_SIDE][0];
+                        let texture_id_y = map_block_id_to_block_static_data.get (block_id).texture_atlas_data[TEXTURE_SIDE][1];
+                        graphics.translate (BLOCK_WIDTH/2, -BLOCK_WIDTH/2, BLOCK_WIDTH);
+                        graphics.texture (texture_atlas);
+                        graphics.beginShape ();
+                        graphics.vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
+                        graphics.vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
+                        graphics.vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
+                        graphics.vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
+                        graphics.endShape ();
+                        graphics.translate (-(BLOCK_WIDTH/2), -(-BLOCK_WIDTH/2), -(BLOCK_WIDTH));
+                    }
+
+                    // back
+                    next_block = world.get_block_type (block_xi, block_yi, block_zi-1);
+                    is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
+                    are_both_blocks_water = block_id == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
+                    if (is_next_block_transparent && !are_both_blocks_water)
+                    {
+                        let texture_id_x = map_block_id_to_block_static_data.get (block_id).texture_atlas_data[TEXTURE_SIDE][0];
+                        let texture_id_y = map_block_id_to_block_static_data.get (block_id).texture_atlas_data[TEXTURE_SIDE][1];
+                        graphics.translate (BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0);
+                        graphics.rotateY (PI);
+                        graphics.texture (texture_atlas);
+                        graphics.beginShape ();
+                        graphics.vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
+                        graphics.vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
+                        graphics.vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
+                        graphics.vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
+                        graphics.endShape ();
+                        graphics.rotateY (-PI);
+                        graphics.translate (-(BLOCK_WIDTH/2), -(-BLOCK_WIDTH/2), -(0));
+                    }
+
+                    // left
+                    next_block = world.get_block_type (block_xi-1, block_yi, block_zi);
+                    is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
+                    are_both_blocks_water = block_id == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
+                    if (is_next_block_transparent && !are_both_blocks_water)
+                    {
+                        let texture_id_x = map_block_id_to_block_static_data.get (block_id).texture_atlas_data[TEXTURE_SIDE][0];
+                        let texture_id_y = map_block_id_to_block_static_data.get (block_id).texture_atlas_data[TEXTURE_SIDE][1];
+                        graphics.translate (0, -BLOCK_WIDTH/2, BLOCK_WIDTH/2);
+                        graphics.rotateY (HALF_PI);
+                        graphics.texture (texture_atlas);
+                        graphics.beginShape ();
+                        graphics.vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
+                        graphics.vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
+                        graphics.vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
+                        graphics.vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
+                        graphics.endShape ();
+                        graphics.rotateY (-HALF_PI);
+                        graphics.translate (-(0), -(-BLOCK_WIDTH/2), -(BLOCK_WIDTH/2));
+                    }
+
+                    // right
+                    next_block = world.get_block_type (block_xi+1, block_yi, block_zi);
+                    is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
+                    are_both_blocks_water = block_id == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
+                    if (is_next_block_transparent && !are_both_blocks_water)
+                    {
+                        let texture_id_x = map_block_id_to_block_static_data.get (block_id).texture_atlas_data[TEXTURE_SIDE][0];
+                        let texture_id_y = map_block_id_to_block_static_data.get (block_id).texture_atlas_data[TEXTURE_SIDE][1];
+                        graphics.translate (BLOCK_WIDTH, -BLOCK_WIDTH/2, BLOCK_WIDTH/2);
+                        graphics.rotateY (-HALF_PI);
+                        graphics.texture (texture_atlas);
+                        graphics.beginShape ();
+                        graphics.vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
+                        graphics.vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
+                        graphics.vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
+                        graphics.vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
+                        graphics.endShape ();
+                        graphics.rotateY (HALF_PI);
+                        graphics.translate (-(BLOCK_WIDTH), -(-BLOCK_WIDTH/2), -(BLOCK_WIDTH/2));
+                    }
+                    // top
+                    next_block = world.get_block_type (block_xi, block_yi+1, block_zi);
+                    is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
+                    are_both_blocks_water = block_id == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
+                    if (is_next_block_transparent && !are_both_blocks_water)
+                    {
+                        let texture_id_x = map_block_id_to_block_static_data.get (block_id).texture_atlas_data[TEXTURE_TOP][0];
+                        let texture_id_y = map_block_id_to_block_static_data.get (block_id).texture_atlas_data[TEXTURE_TOP][1];
+                        graphics.translate (BLOCK_WIDTH/2, -BLOCK_WIDTH, BLOCK_WIDTH/2);
+                        graphics.rotateX (HALF_PI);
+                        graphics.texture (texture_atlas);
+                        graphics.beginShape ();
+                        graphics.vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
+                        graphics.vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
+                        graphics.vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
+                        graphics.vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
+                        graphics.endShape ();
+                        graphics.rotateX (-HALF_PI);
+                        graphics.translate (-(BLOCK_WIDTH/2), -(-BLOCK_WIDTH), -(BLOCK_WIDTH/2));
+                    }
+
+                    // bottom
+                    next_block = world.get_block_type (block_xi, block_yi-1, block_zi);
+                    is_next_block_transparent = next_block == null || map_block_id_to_block_static_data.get (next_block).is_transparent;
+                    are_both_blocks_water = block_id == BLOCK_ID_WATER && next_block == BLOCK_ID_WATER;
+                    if (is_next_block_transparent && !are_both_blocks_water)
+                    {
+                        let texture_id_x = map_block_id_to_block_static_data.get (block_id).texture_atlas_data[TEXTURE_BOTTOM][0];
+                        let texture_id_y = map_block_id_to_block_static_data.get (block_id).texture_atlas_data[TEXTURE_BOTTOM][1];
+                        graphics.translate (BLOCK_WIDTH/2, 0, BLOCK_WIDTH/2);
+                        graphics.rotateX (HALF_PI);
+                        graphics.texture (texture_atlas);
+                        graphics.beginShape ();
+                        graphics.vertex (-BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top left
+                        graphics.vertex ( BLOCK_WIDTH/2, -BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+0)*TEXTURE_WIDTH); // top right
+                        graphics.vertex ( BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+1)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom right
+                        graphics.vertex (-BLOCK_WIDTH/2,  BLOCK_WIDTH/2, 0, (texture_id_x+0)*TEXTURE_WIDTH, (texture_id_y+1)*TEXTURE_WIDTH); // bottom left
+                        graphics.endShape ();
+                        graphics.rotateX (-HALF_PI);
+                        graphics.translate (-(BLOCK_WIDTH/2), -(0), -(BLOCK_WIDTH/2));
+                    }
+
+                    // return from block's position
+                    graphics.translate (-i*BLOCK_WIDTH, j*BLOCK_WIDTH, -k*BLOCK_WIDTH);
+                }
+            }
+        }
+
+        // return from chunk's position
+        graphics.translate (-this.x, -this.y, -this.z);
+
+        if (should_build_solid_blocks)
+            this.solid_geometry = graphics.endGeometry ();
+        else
+            this.transparent_geometry = graphics.endGeometry ();
+    }
+
+    reload_chunk ()
+    {
+        this.solid_geometry = null;
+        this.transparent_geometry = null;
+    }
+
     // draws all solid blocks (non-transparent) of this chunk 
     draw_solid_blocks ()
     {
@@ -89,33 +283,36 @@ class Chunk
         if (!this.is_loaded)
             return;
 
-        // move to chunk's position
-        graphics.translate (this.x, this.y, this.z);
-
         // draw outline of chunk
         if (is_in_debug_mode)
         {
-            // boxes are draw from the center so we need to align to the chunk
-            graphics.translate (CHUNK_SIZE * BLOCK_WIDTH / 2, -CHUNK_SIZE * BLOCK_WIDTH / 2, CHUNK_SIZE * BLOCK_WIDTH / 2);
-            // highlight if camera is in this chunk
-            if (this.x <= player.camera.eyeX && player.camera.eyeX <= this.x + CHUNK_SIZE * BLOCK_WIDTH &&
-                this.y >= player.camera.eyeY && player.camera.eyeY >= this.y - CHUNK_SIZE * BLOCK_WIDTH &&
-                this.z <= player.camera.eyeZ && player.camera.eyeZ <= this.z + CHUNK_SIZE * BLOCK_WIDTH)
-            {
-                graphics.stroke (255, 255, 0);
-                graphics.strokeWeight (2);
-            }
-            else
-            {
-                graphics.stroke (255, 0, 255);
-                graphics.strokeWeight (1);
-            }
-            graphics.noFill ();
-            graphics.box (CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * BLOCK_WIDTH);
-
-            // undo translate
-            graphics.translate (-(CHUNK_SIZE * BLOCK_WIDTH / 2), -(-CHUNK_SIZE * BLOCK_WIDTH / 2), -(CHUNK_SIZE * BLOCK_WIDTH / 2));
+            this.draw_chunk_outline ();
         }
+
+        // Handle special instancing behavior
+        if (current_draw_style == DRAW_STYLE_INSTANCED)
+        {
+            // prebuild a geometry of this chunk if we dont already have one
+            // unless we already built a chunk in this frame, then just ignore for now
+            if (this.solid_geometry == null && current_chunk_build_delay <= 0.0)
+            {
+                this.build_geometry (true);
+                current_chunk_build_delay = CHUNK_BUILD_DELAY;
+            }
+            else if (this.solid_geometry == null && current_chunk_build_delay > 0.0)
+                // dont draw anything since we have nothing to draw
+                return;
+            // draw model
+            graphics.noFill ();
+            graphics.noStroke ();
+            graphics.texture (texture_atlas);
+            graphics.model (this.solid_geometry);
+            return;
+        }
+        // Non-instancing
+
+        // move to chunk's position
+        graphics.translate (this.x, this.y, this.z);
 
         // 1. first, draw non-transparent blocks
         // loop over x direction drawing blocks left to right
@@ -152,6 +349,29 @@ class Chunk
         // ensure chunk is loaded and ready
         if (!this.is_loaded)
             return;
+        
+        // Handle special instancing behavior
+        if (current_draw_style == DRAW_STYLE_INSTANCED)
+        {
+            // prebuild a geometry of this chunk if we dont already have one
+            // also built geometry if solid blocks were built
+            if ((this.transparent_geometry == null && current_chunk_build_delay <= 0.0) ||
+                (this.transparent_geometry == null && this.solid_geometry != null))
+            {
+                this.build_geometry (false);
+                current_chunk_build_delay = CHUNK_BUILD_DELAY;
+            }
+            else if (this.transparent_geometry == null && current_chunk_build_delay > 0.0)
+                // dont draw anything since we have nothing to draw
+                return;
+            // draw model
+            graphics.noFill ();
+            graphics.noStroke ();
+            graphics.texture (texture_atlas);
+            graphics.model (this.transparent_geometry);
+            return;
+        }
+        // Non-instancing
 
         // move to chunk's position
         graphics.translate (this.x, this.y, this.z);
@@ -180,6 +400,34 @@ class Chunk
             }
         }
 
+        // undo translate to chunk's position
+        graphics.translate (-this.x, -this.y, -this.z);
+    }
+
+    draw_chunk_outline ()
+    {
+        // move to chunk's position
+        graphics.translate (this.x, this.y, this.z);
+        // boxes are draw from the center so we need to align to the chunk
+        graphics.translate (CHUNK_SIZE * BLOCK_WIDTH / 2, -CHUNK_SIZE * BLOCK_WIDTH / 2, CHUNK_SIZE * BLOCK_WIDTH / 2);
+        // highlight if camera is in this chunk
+        if (this.x <= player.camera.eyeX && player.camera.eyeX <= this.x + CHUNK_SIZE * BLOCK_WIDTH &&
+            this.y >= player.camera.eyeY && player.camera.eyeY >= this.y - CHUNK_SIZE * BLOCK_WIDTH &&
+            this.z <= player.camera.eyeZ && player.camera.eyeZ <= this.z + CHUNK_SIZE * BLOCK_WIDTH)
+        {
+            graphics.stroke (255, 255, 0);
+            graphics.strokeWeight (2);
+        }
+        else
+        {
+            graphics.stroke (255, 0, 255);
+            graphics.strokeWeight (1);
+        }
+        graphics.noFill ();
+        graphics.box (CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * BLOCK_WIDTH, CHUNK_SIZE * BLOCK_WIDTH);
+
+        // undo translate
+        graphics.translate (-(CHUNK_SIZE * BLOCK_WIDTH / 2), -(-CHUNK_SIZE * BLOCK_WIDTH / 2), -(CHUNK_SIZE * BLOCK_WIDTH / 2));
         // undo translate to chunk's position
         graphics.translate (-this.x, -this.y, -this.z);
     }
