@@ -60,6 +60,9 @@ let texture_stone_shovel;
 let texture_stone_axe;
 let texture_stone_hoe;
 let texture_stone_sword;
+let texture_cobblestone;
+let texture_stick;
+let texture_wooden_planks;
 let texture_block_break_0;
 let texture_block_break_1;
 let texture_block_break_2;
@@ -156,6 +159,9 @@ function preload ()
     texture_stone_axe     = loadImage ("assets/texture_stone_axe_64x.png");
     texture_stone_hoe     = loadImage ("assets/texture_stone_hoe_64x.png");
     texture_stone_sword   = loadImage ("assets/texture_stone_sword_64x.png");
+    texture_cobblestone   = loadImage ("assets/texture_cobblestone_64x.png");
+    texture_stick         = loadImage ("assets/texture_stick_64x.png");
+    texture_wooden_planks = loadImage ("assets/texture_wooden_planks_64x.png");
 
     // block breaking textures
     texture_block_break_0 = loadImage ("assets/texture_block_break_0_64x.png");
@@ -259,18 +265,22 @@ function draw ()
                 if (current_player_mode != PLAYER_MODE_CREATIVE)
                 {
                     // drop item entity from the block
-                    let block_item_entity = new ItemEntity (new ItemStack (new Item (block_type), 1));
-                    // move entity to block's position
-                    block_item_entity.set_position (g_block_being_mined.x * BLOCK_WIDTH, -g_block_being_mined.y * BLOCK_WIDTH - BLOCK_WIDTH/2, g_block_being_mined.z * BLOCK_WIDTH);
-                    // send block in a random direction
-                    let dir = p5.Vector.random3D ();
-                    let vel = p5.Vector.mult (dir, BLOCK_THROW_SPEED/2);
-                    block_item_entity.add_velocity (vel.x, vel.y, vel.z);
-                    // Broken blocks should be able to be picked up instantly
-                    // so clear delay
-                    block_item_entity.collect_delay = 0.0;
-                    // add entity to global list
-                    g_entities.push (block_item_entity);
+                    let item_stack_to_drop = map_block_id_to_block_static_data.get (block_type).block_drops_func ();
+                    if (item_stack_to_drop != null)
+                    {
+                        let block_item_entity = new ItemEntity (item_stack_to_drop);
+                        // move entity to block's position
+                        block_item_entity.set_position (g_block_being_mined.x * BLOCK_WIDTH, -g_block_being_mined.y * BLOCK_WIDTH - BLOCK_WIDTH/2, g_block_being_mined.z * BLOCK_WIDTH);
+                        // send block in a random direction
+                        let dir = p5.Vector.random3D ();
+                        let vel = p5.Vector.mult (dir, BLOCK_THROW_SPEED/2);
+                        block_item_entity.add_velocity (vel.x, vel.y, vel.z);
+                        // Broken blocks should be able to be picked up instantly
+                        // so clear delay
+                        block_item_entity.collect_delay = 0.0;
+                        // add entity to global list
+                        g_entities.push (block_item_entity);
+                    }
                 }
                 // block is broken so stop mining
                 g_block_being_mined = null;

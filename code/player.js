@@ -66,9 +66,17 @@ class Player
         this.equipment = new Inventory (4, 1);
         // player's main inventory
         this.inventory = new Inventory (3, 9);
-        this.inventory.add_item_at (0, 0, new ItemStack (new Item (BLOCK_ID_GRASS), 14));
-        this.inventory.add_item_at (0, 1, new ItemStack (new Item (BLOCK_ID_DIRT), 10));
-        this.inventory.add_item_at (0, 2, new ItemStack (new Item (BLOCK_ID_STONE), 24));
+        this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_GRASS), 64));
+        this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_DIRT), 64));
+        this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_STONE), 64));
+        this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_WATER), 64));
+        this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_SAND), 64));
+        this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_LOG), 64));
+        this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_LEAVES), 64));
+        this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_GLASS), 64));
+        this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_WOODEN_PLANKS), 64));
+        this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_COBBLESTONE), 64));
+        this.inventory.add_item (new ItemStack (new Item (ITEM_ID_STICK), 16));
         // player's hotbar
         this.hotbar = new Inventory (1, 9);
         this.hotbar.add_item (new ItemStack (new Item (ITEM_ID_STONE_PICKAXE), 1));

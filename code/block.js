@@ -24,6 +24,9 @@ const ITEM_ID_STONE_SHOVEL  = 10;
 const ITEM_ID_STONE_AXE     = 11;
 const ITEM_ID_STONE_HOE     = 12;
 const ITEM_ID_STONE_SWORD   = 13;
+const BLOCK_ID_COBBLESTONE  = 14;
+const ITEM_ID_STICK         = 15;
+const BLOCK_ID_WOODEN_PLANKS= 16;
 const BLOCK_ID_STR_MAP = new Map ();
 BLOCK_ID_STR_MAP.set (BLOCK_ID_NONE  , "BLOCK_ID_NONE");
 BLOCK_ID_STR_MAP.set (BLOCK_ID_AIR   , "BLOCK_ID_AIR");
@@ -40,6 +43,9 @@ BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_SHOVEL , "ITEM_ID_STONE_SHOVEL");
 BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_AXE    , "ITEM_ID_STONE_AXE");
 BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_HOE    , "ITEM_ID_STONE_HOE");
 BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_SWORD  , "ITEM_ID_STONE_SWORD");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_COBBLESTONE , "BLOCK_ID_COBBLESTONE");
+BLOCK_ID_STR_MAP.set (ITEM_ID_STICK , "ITEM_ID_STICK");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_WOODEN_PLANKS , "BLOCK_ID_WOODEN_PLANKS");
 
 const TEXTURE_TOP    = 0;
 const TEXTURE_SIDE   = 1;
@@ -84,7 +90,7 @@ const TOOL_SWORD   = 5;
 // this represents 
 class BlockStaticData
 {
-    constructor (block_id, texture_atlas_data, texture_img_data, fill_color, stack_max_size, is_transparent, mine_duration, preferred_tool, is_item, tool_efficiency_factor, tool_type, tool_durability_max)
+    constructor (block_id, texture_atlas_data, texture_img_data, fill_color, stack_max_size, is_transparent, mine_duration, preferred_tool, is_item, tool_efficiency_factor, tool_type, tool_durability_max, block_drops_func)
     {
         this.block_id = block_id;
         this.texture_atlas_data = texture_atlas_data;
@@ -103,6 +109,9 @@ class BlockStaticData
         this.tool_type = tool_type;
         // the number of uses of a tool item before it breaks
         this.tool_durability_max = tool_durability_max;
+        // a user supplied function for determining what item(s)
+        // to drop when the block is broken
+        this.block_drops_func = block_drops_func;
     }
 }
 
@@ -138,7 +147,8 @@ function block_setup ()
         is_item=false,
         tool_efficiency_factor=0,
         tool_type=TOOL_NONE,
-        tool_durability_max=null)
+        tool_durability_max=null,
+        block_drops_func=()=>{return null})
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_GRASS, new BlockStaticData (
         BLOCK_ID_GRASS, 
@@ -160,7 +170,8 @@ function block_setup ()
         is_item=false,
         tool_efficiency_factor=0,
         tool_type=TOOL_NONE,
-        tool_durability_max=null)
+        tool_durability_max=null,
+        block_drops_func=()=>{return new ItemStack (new Item (BLOCK_ID_DIRT), 1)})
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_DIRT, new BlockStaticData (
         BLOCK_ID_DIRT, 
@@ -182,7 +193,8 @@ function block_setup ()
         is_item=false,
         tool_efficiency_factor=0,
         tool_type=TOOL_NONE,
-        tool_durability_max=null)
+        tool_durability_max=null,
+        block_drops_func=()=>{return new ItemStack (new Item (BLOCK_ID_DIRT), 1)})
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_STONE, new BlockStaticData (
         BLOCK_ID_STONE, 
@@ -204,7 +216,8 @@ function block_setup ()
         is_item=false,
         tool_efficiency_factor=0,
         tool_type=TOOL_NONE,
-        tool_durability_max=null)
+        tool_durability_max=null,
+        block_drops_func=()=>{return new ItemStack (new Item (BLOCK_ID_COBBLESTONE), 1)})
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_WATER, new BlockStaticData (
         BLOCK_ID_WATER, 
@@ -226,7 +239,8 @@ function block_setup ()
         is_item=false,
         tool_efficiency_factor=0,
         tool_type=TOOL_NONE,
-        tool_durability_max=null)
+        tool_durability_max=null,
+        block_drops_func=()=>{return new ItemStack (new Item (BLOCK_ID_WATER), 1)})
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_SAND, new BlockStaticData (
         BLOCK_ID_SAND, 
@@ -248,7 +262,8 @@ function block_setup ()
         is_item=false,
         tool_efficiency_factor=0,
         tool_type=TOOL_NONE,
-        tool_durability_max=null)
+        tool_durability_max=null,
+        block_drops_func=()=>{return new ItemStack (new Item (BLOCK_ID_SAND), 1)})
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_LOG, new BlockStaticData (
         BLOCK_ID_LOG, 
@@ -270,7 +285,8 @@ function block_setup ()
         is_item=false,
         tool_efficiency_factor=0,
         tool_type=TOOL_NONE,
-        tool_durability_max=null)
+        tool_durability_max=null,
+        block_drops_func=()=>{return new ItemStack (new Item (BLOCK_ID_LOG), 1)})
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_LEAVES, new BlockStaticData (
         BLOCK_ID_LEAVES, 
@@ -292,7 +308,10 @@ function block_setup ()
         is_item=false,
         tool_efficiency_factor=0,
         tool_type=TOOL_NONE,
-        tool_durability_max=null)
+        tool_durability_max=null,
+        block_drops_func=()=>{
+            return new ItemStack (new Item (random ([BLOCK_ID_LEAVES, ITEM_ID_STICK])), 1)
+        })
     );
     map_block_id_to_block_static_data.set (BLOCK_ID_GLASS, new BlockStaticData (
         BLOCK_ID_GLASS, 
@@ -314,7 +333,54 @@ function block_setup ()
         is_item=false,
         tool_efficiency_factor=0,
         tool_type=TOOL_NONE,
-        tool_durability_max=null)
+        tool_durability_max=null,
+        block_drops_func=()=>{return null})
+    );
+    map_block_id_to_block_static_data.set (BLOCK_ID_COBBLESTONE, new BlockStaticData (
+        BLOCK_ID_COBBLESTONE, 
+        [ // texture atlas positions
+            [1, 1], // top
+            [1, 1], // sides
+            [1, 1]  // bottom
+        ], 
+        [ // individual texture images
+            texture_cobblestone, // top
+            texture_cobblestone, // sides
+            texture_cobblestone  // bottom
+        ], 
+        [150, 150, 150],
+        stack_max_size=64,
+        is_transparent=false,
+        mine_duration=5,
+        preferred_tool=TOOL_PICKAXE,
+        is_item=false,
+        tool_efficiency_factor=0,
+        tool_type=TOOL_NONE,
+        tool_durability_max=null,
+        block_drops_func=()=>{return new ItemStack (new Item (BLOCK_ID_COBBLESTONE), 1)})
+    );
+    map_block_id_to_block_static_data.set (BLOCK_ID_WOODEN_PLANKS, new BlockStaticData (
+        BLOCK_ID_WOODEN_PLANKS, 
+        [ // texture atlas positions
+            [2, 1], // top
+            [2, 1], // sides
+            [2, 1]  // bottom
+        ], 
+        [ // individual texture images
+            texture_wooden_planks, // top
+            texture_wooden_planks, // sides
+            texture_wooden_planks  // bottom
+        ], 
+        "brown",
+        stack_max_size=64,
+        is_transparent=false,
+        mine_duration=2,
+        preferred_tool=TOOL_AXE,
+        is_item=false,
+        tool_efficiency_factor=0,
+        tool_type=TOOL_NONE,
+        tool_durability_max=null,
+        block_drops_func=()=>{return new ItemStack (new Item (BLOCK_ID_WOODEN_PLANKS), 1)})
     );
     map_block_id_to_block_static_data.set (ITEM_ID_STONE_PICKAXE, new BlockStaticData (
         ITEM_ID_STONE_PICKAXE, 
@@ -336,7 +402,8 @@ function block_setup ()
         is_item=true,
         tool_efficiency_factor=3,
         tool_type=TOOL_PICKAXE,
-        tool_durability_max=128)
+        tool_durability_max=128,
+        block_drops_func=()=>{return null})
     );
     map_block_id_to_block_static_data.set (ITEM_ID_STONE_SHOVEL, new BlockStaticData (
         ITEM_ID_STONE_SHOVEL, 
@@ -358,7 +425,8 @@ function block_setup ()
         is_item=true,
         tool_efficiency_factor=3,
         tool_type=TOOL_SHOVEL,
-        tool_durability_max=128)
+        tool_durability_max=128,
+        block_drops_func=()=>{return null})
     );
     map_block_id_to_block_static_data.set (ITEM_ID_STONE_AXE, new BlockStaticData (
         ITEM_ID_STONE_AXE, 
@@ -380,7 +448,8 @@ function block_setup ()
         is_item=true,
         tool_efficiency_factor=3,
         tool_type=TOOL_AXE,
-        tool_durability_max=128)
+        tool_durability_max=128,
+        block_drops_func=()=>{return null})
     );
     map_block_id_to_block_static_data.set (ITEM_ID_STONE_HOE, new BlockStaticData (
         ITEM_ID_STONE_HOE, 
@@ -402,7 +471,8 @@ function block_setup ()
         is_item=true,
         tool_efficiency_factor=10,
         tool_type=TOOL_HOE,
-        tool_durability_max=128)
+        tool_durability_max=128,
+        block_drops_func=()=>{return null})
     );
     map_block_id_to_block_static_data.set (ITEM_ID_STONE_SWORD, new BlockStaticData (
         ITEM_ID_STONE_SWORD, 
@@ -424,7 +494,31 @@ function block_setup ()
         is_item=true,
         tool_efficiency_factor=3,
         tool_type=TOOL_SWORD,
-        tool_durability_max=128)
+        tool_durability_max=128,
+        block_drops_func=()=>{return null})
+    );
+    map_block_id_to_block_static_data.set (ITEM_ID_STICK, new BlockStaticData (
+        ITEM_ID_STICK, 
+        [ // texture atlas positions
+            [0, 0], // top
+            [0, 0], // sides
+            [0, 0]  // bottom
+        ], 
+        [ // individual texture images
+            texture_stick, // top
+            texture_stick, // sides
+            texture_stick  // bottom
+        ], 
+        "brown",
+        stack_max_size=64,
+        is_transparent=true,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=true,
+        tool_efficiency_factor=0,
+        tool_type=TOOL_NONE,
+        tool_durability_max=0,
+        block_drops_func=()=>{return null})
     );
 
 }
