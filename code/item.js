@@ -42,12 +42,17 @@ class ItemStack
     {
         this.item = item;
         this.amount = amount;
-        this.max_amount = 64;
     }
 
     get_item_type ()
     {
         return this.item.item_id;
+    }
+    
+    copy ()
+    {
+        let item_stack_copy = new ItemStack (this.item.copy (), this.amount);
+        return item_stack_copy;
     }
 
     draw (x, y, width)

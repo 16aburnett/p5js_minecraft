@@ -77,6 +77,7 @@ class Player
         this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_WOODEN_PLANKS), 64));
         this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_COBBLESTONE), 64));
         this.inventory.add_item (new ItemStack (new Item (ITEM_ID_STICK), 16));
+        this.inventory.add_item (new ItemStack (new Item (BLOCK_ID_CRAFTING_TABLE), 16));
         // player's hotbar
         this.hotbar = new Inventory (1, 9);
         this.hotbar.add_item (new ItemStack (new Item (ITEM_ID_STONE_PICKAXE), 1));
@@ -87,9 +88,11 @@ class Player
         this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_LOG), 64));
         this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_LEAVES), 64));
         this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_GLASS), 64));
-        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_DIRT), 64));
-        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_STONE), 64));
-        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_SAND), 64));
+        this.hotbar.add_item (new ItemStack (new Item (BLOCK_ID_CRAFTING_TABLE), 16));
+
+        // player's crafting inventory
+        this.crafting_inventory_in = new Inventory (2, 2);
+        this.crafting_inventory_out = new CraftingOutputInventory (this.crafting_inventory_in);
         
         this.control_mode = PLAYER_CONTROL_MODE_NORMAL;
     }

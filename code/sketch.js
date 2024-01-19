@@ -62,6 +62,9 @@ let texture_stone_hoe;
 let texture_stone_sword;
 let texture_cobblestone;
 let texture_stick;
+let texture_crafting_table_top;
+let texture_crafting_table_front;
+let texture_crafting_table_side;
 let texture_wooden_planks;
 let texture_block_break_0;
 let texture_block_break_1;
@@ -162,6 +165,9 @@ function preload ()
     texture_cobblestone   = loadImage ("assets/texture_cobblestone_64x.png");
     texture_stick         = loadImage ("assets/texture_stick_64x.png");
     texture_wooden_planks = loadImage ("assets/texture_wooden_planks_64x.png");
+    texture_crafting_table_top   = loadImage ("assets/texture_crafting_table_top_64x.png");
+    texture_crafting_table_front = loadImage ("assets/texture_crafting_table_front_64x.png");
+    texture_crafting_table_side  = loadImage ("assets/texture_crafting_table_side_64x.png");
 
     // block breaking textures
     texture_block_break_0 = loadImage ("assets/texture_block_break_0_64x.png");
@@ -188,6 +194,7 @@ function setup ()
 
     // setup block textures and other static block info
     block_setup ();
+    crafting_setup ();
 
     // setup player
     player = new Player ();
@@ -252,7 +259,8 @@ function draw ()
         world.update ();
 
         // continue breaking block if we were mining
-        if (g_block_being_mined != null && !g_waiting_for_mouse_release)
+        // and not in inventory
+        if (g_block_being_mined != null && !g_waiting_for_mouse_release && !is_inventory_opened)
         {
             // check if we finished breaking block
             if (g_block_being_mined_delay <= 0.0)
@@ -573,7 +581,7 @@ function draw_controls ()
                             `cycle player mode - L\n` +
                            `cycle control mode - P\n` +
                              `cycle draw style - T\n` +
-                             `toggle inventory - I\n` +
+                             `toggle inventory - E\n` +
                              `pause game - ESC/Tab\n` ,
 
         width, 0);
@@ -724,12 +732,17 @@ function keyPressed ()
         is_game_paused = true;
     }
     // toggle inventory
-    if (keyCode == KEY_I)
+    if (keyCode == "E".charCodeAt (0))
     {
         is_inventory_opened = !is_inventory_opened;
         // if we opened the inventory, then enable the mouse
         // so that the player can interact with the inventory
-        exitPointerLock ();
+        if (is_inventory_opened)
+            exitPointerLock ();
+        // clear special content
+        // if we are opening inv, then we want the default inv display
+        // if we are closing, then we want the next open to be default
+        inventory_display.content = null;
     }
     // change (cycle through) player control mode
     if (keyCode == "P".charCodeAt (0))
@@ -910,6 +923,8 @@ function mousePressed ()
             // we clicked on the screen but not on the inventory
             // so close the inventory
             is_inventory_opened = false;
+            // clear interacted content pane
+            inventory_display.content = null;
             // and relock the mouse so the player can control the camera
             // we need to first exit pointer lock in-case the cursor
             // somehow got out of the lock
@@ -932,22 +947,37 @@ function mousePressed ()
         {
             if (current_pointed_at_block != null)
             {
+                // block is interactable - so interact with it
+                let block_id = world.get_block_type (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
+                let block_data = map_block_id_to_block_static_data.get (block_id);
+                if (block_data.interactable)
+                {
+                    // interact with block
+                    console.log ("interacting!");
+                    block_data.interact ();
+                }
+                // block is not interactable - so try placing held block
                 // place the block from the player's inventory (if there is one)
-                if (player.hotbar.slots[current_hotbar_index] != null)
+                else if (player.hotbar.slots[current_hotbar_index] != null)
                 {
                     let block_id_to_place = player.hotbar.slots[current_hotbar_index].item.item_id;
                     // dont place anything if nothing in hand
                     if (block_id_to_place != null)
                     {
-                        world.set_block_at (block_id_to_place, pointed_at_block_neighbor.x, pointed_at_block_neighbor.y, pointed_at_block_neighbor.z);
-                        // decrement blocks (if not in creative mode)
-                        if (current_player_mode != PLAYER_MODE_CREATIVE)
+                        // ensure block can be placed in the neighbor cell
+                        let neighbor_type = world.get_block_type (pointed_at_block_neighbor.x, pointed_at_block_neighbor.y, pointed_at_block_neighbor.z);
+                        if (neighbor_type == BLOCK_ID_AIR || neighbor_type == BLOCK_ID_WATER)
                         {
-                            // decrement item stack
-                            player.hotbar.slots[current_hotbar_index].amount--;
-                            // remove item stack if no more items
-                            if (player.hotbar.slots[current_hotbar_index].amount <= 0)
-                                player.hotbar.slots[current_hotbar_index] = null;
+                            world.set_block_at (block_id_to_place, pointed_at_block_neighbor.x, pointed_at_block_neighbor.y, pointed_at_block_neighbor.z);
+                            // decrement blocks (if not in creative mode)
+                            if (current_player_mode != PLAYER_MODE_CREATIVE)
+                            {
+                                // decrement item stack
+                                player.hotbar.slots[current_hotbar_index].amount--;
+                                // remove item stack if no more items
+                                if (player.hotbar.slots[current_hotbar_index].amount <= 0)
+                                    player.hotbar.slots[current_hotbar_index] = null;
+                            }
                         }
                     }
                 }
