@@ -9,44 +9,54 @@ const BACK_FACE_CULLING = true;
 const BLOCK_WIDTH = 1;
 
 // Block IDs that represent the different kinds of blocks
-const BLOCK_ID_NONE         = -1;
-const BLOCK_ID_AIR          = 0;
-const BLOCK_ID_GRASS        = 1;
-const BLOCK_ID_DIRT         = 2;
-const BLOCK_ID_STONE        = 3;
-const BLOCK_ID_WATER        = 4;
-const BLOCK_ID_SAND         = 5;
-const BLOCK_ID_LOG          = 6;
-const BLOCK_ID_LEAVES       = 7;
-const BLOCK_ID_GLASS        = 8;
-const ITEM_ID_STONE_PICKAXE = 9;
-const ITEM_ID_STONE_SHOVEL  = 10;
-const ITEM_ID_STONE_AXE     = 11;
-const ITEM_ID_STONE_HOE     = 12;
-const ITEM_ID_STONE_SWORD   = 13;
-const BLOCK_ID_COBBLESTONE  = 14;
-const ITEM_ID_STICK         = 15;
-const BLOCK_ID_WOODEN_PLANKS = 16;
-const BLOCK_ID_CRAFTING_TABLE = 17;
+const BLOCK_ID_NONE          = -1;
+const BLOCK_ID_AIR           = 0;
+const BLOCK_ID_GRASS         = 1;
+const BLOCK_ID_DIRT          = 2;
+const BLOCK_ID_STONE         = 3;
+const BLOCK_ID_WATER         = 4;
+const BLOCK_ID_SAND          = 5;
+const BLOCK_ID_LOG           = 6;
+const BLOCK_ID_LEAVES        = 7;
+const BLOCK_ID_GLASS         = 8;
+const ITEM_ID_WOODEN_PICKAXE = 9;
+const ITEM_ID_WOODEN_SHOVEL  = 10;
+const ITEM_ID_WOODEN_AXE     = 11;
+const ITEM_ID_WOODEN_HOE     = 12;
+const ITEM_ID_WOODEN_SWORD   = 13;
+const ITEM_ID_STONE_PICKAXE  = 14;
+const ITEM_ID_STONE_SHOVEL   = 15;
+const ITEM_ID_STONE_AXE      = 16;
+const ITEM_ID_STONE_HOE      = 17;
+const ITEM_ID_STONE_SWORD    = 18;
+const BLOCK_ID_COBBLESTONE   = 19;
+const ITEM_ID_STICK          = 20;
+const BLOCK_ID_WOODEN_PLANKS = 21;
+const BLOCK_ID_CRAFTING_TABLE= 22;
 const BLOCK_ID_STR_MAP = new Map ();
-BLOCK_ID_STR_MAP.set (BLOCK_ID_NONE  , "BLOCK_ID_NONE");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_AIR   , "BLOCK_ID_AIR");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_GRASS , "BLOCK_ID_GRASS");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_DIRT  , "BLOCK_ID_DIRT");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_STONE , "BLOCK_ID_STONE");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_WATER , "BLOCK_ID_WATER");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_SAND  , "BLOCK_ID_SAND");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_LOG   , "BLOCK_ID_LOG");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_LEAVES, "BLOCK_ID_LEAVES");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_GLASS , "BLOCK_ID_GLASS");
-BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_PICKAXE, "ITEM_ID_STONE_PICKAXE");
-BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_SHOVEL , "ITEM_ID_STONE_SHOVEL");
-BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_AXE    , "ITEM_ID_STONE_AXE");
-BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_HOE    , "ITEM_ID_STONE_HOE");
-BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_SWORD  , "ITEM_ID_STONE_SWORD");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_COBBLESTONE , "BLOCK_ID_COBBLESTONE");
-BLOCK_ID_STR_MAP.set (ITEM_ID_STICK , "ITEM_ID_STICK");
-BLOCK_ID_STR_MAP.set (BLOCK_ID_WOODEN_PLANKS , "BLOCK_ID_WOODEN_PLANKS");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_NONE           , "BLOCK_ID_NONE");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_AIR            , "BLOCK_ID_AIR");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_GRASS          , "BLOCK_ID_GRASS");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_DIRT           , "BLOCK_ID_DIRT");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_STONE          , "BLOCK_ID_STONE");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_WATER          , "BLOCK_ID_WATER");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_SAND           , "BLOCK_ID_SAND");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_LOG            , "BLOCK_ID_LOG");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_LEAVES         , "BLOCK_ID_LEAVES");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_GLASS          , "BLOCK_ID_GLASS");
+BLOCK_ID_STR_MAP.set (ITEM_ID_WOODEN_PICKAXE  , "ITEM_ID_WOODEN_PICKAXE");
+BLOCK_ID_STR_MAP.set (ITEM_ID_WOODEN_SHOVEL   , "ITEM_ID_WOODEN_SHOVEL");
+BLOCK_ID_STR_MAP.set (ITEM_ID_WOODEN_AXE      , "ITEM_ID_WOODEN_AXE");
+BLOCK_ID_STR_MAP.set (ITEM_ID_WOODEN_HOE      , "ITEM_ID_WOODEN_HOE");
+BLOCK_ID_STR_MAP.set (ITEM_ID_WOODEN_SWORD    , "ITEM_ID_WOODEN_SWORD");
+BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_PICKAXE   , "ITEM_ID_STONE_PICKAXE");
+BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_SHOVEL    , "ITEM_ID_STONE_SHOVEL");
+BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_AXE       , "ITEM_ID_STONE_AXE");
+BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_HOE       , "ITEM_ID_STONE_HOE");
+BLOCK_ID_STR_MAP.set (ITEM_ID_STONE_SWORD     , "ITEM_ID_STONE_SWORD");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_COBBLESTONE    , "BLOCK_ID_COBBLESTONE");
+BLOCK_ID_STR_MAP.set (ITEM_ID_STICK           , "ITEM_ID_STICK");
+BLOCK_ID_STR_MAP.set (BLOCK_ID_WOODEN_PLANKS  , "BLOCK_ID_WOODEN_PLANKS");
 BLOCK_ID_STR_MAP.set (BLOCK_ID_CRAFTING_TABLE , "BLOCK_ID_CRAFTING_TABLE");
 
 const TEXTURE_TOP    = 0;
@@ -409,6 +419,131 @@ function block_setup ()
         tool_type=TOOL_NONE,
         tool_durability_max=null,
         block_drops_func=()=>{return new ItemStack (new Item (BLOCK_ID_WOODEN_PLANKS), 1)},
+        interactable=false,
+        interact=()=>{})
+    );
+    map_block_id_to_block_static_data.set (ITEM_ID_WOODEN_PICKAXE, new BlockStaticData (
+        ITEM_ID_WOODEN_PICKAXE, 
+        [ // texture atlas positions
+            [0, 0], // top
+            [0, 0], // sides
+            [0, 0]  // bottom
+        ], 
+        [ // individual texture images
+            texture_wooden_pickaxe, // top
+            texture_wooden_pickaxe, // sides
+            texture_wooden_pickaxe  // bottom
+        ], 
+        "brown",
+        stack_max_size=1,
+        is_transparent=true,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=true,
+        tool_efficiency_factor=2,
+        tool_type=TOOL_PICKAXE,
+        tool_durability_max=64,
+        block_drops_func=()=>{return null},
+        interactable=false,
+        interact=()=>{})
+    );
+    map_block_id_to_block_static_data.set (ITEM_ID_WOODEN_SHOVEL, new BlockStaticData (
+        ITEM_ID_WOODEN_SHOVEL, 
+        [ // texture atlas positions
+            [0, 0], // top
+            [0, 0], // sides
+            [0, 0]  // bottom
+        ], 
+        [ // individual texture images
+            texture_wooden_shovel, // top
+            texture_wooden_shovel, // sides
+            texture_wooden_shovel  // bottom
+        ], 
+        "brown",
+        stack_max_size=1,
+        is_transparent=true,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=true,
+        tool_efficiency_factor=2,
+        tool_type=TOOL_SHOVEL,
+        tool_durability_max=64,
+        block_drops_func=()=>{return null},
+        interactable=false,
+        interact=()=>{})
+    );
+    map_block_id_to_block_static_data.set (ITEM_ID_WOODEN_AXE, new BlockStaticData (
+        ITEM_ID_WOODEN_AXE, 
+        [ // texture atlas positions
+            [0, 0], // top
+            [0, 0], // sides
+            [0, 0]  // bottom
+        ], 
+        [ // individual texture images
+            texture_wooden_axe, // top
+            texture_wooden_axe, // sides
+            texture_wooden_axe  // bottom
+        ], 
+        "brown",
+        stack_max_size=1,
+        is_transparent=true,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=true,
+        tool_efficiency_factor=2,
+        tool_type=TOOL_AXE,
+        tool_durability_max=64,
+        block_drops_func=()=>{return null},
+        interactable=false,
+        interact=()=>{})
+    );
+    map_block_id_to_block_static_data.set (ITEM_ID_WOODEN_HOE, new BlockStaticData (
+        ITEM_ID_WOODEN_HOE, 
+        [ // texture atlas positions
+            [0, 0], // top
+            [0, 0], // sides
+            [0, 0]  // bottom
+        ], 
+        [ // individual texture images
+            texture_wooden_hoe, // top
+            texture_wooden_hoe, // sides
+            texture_wooden_hoe  // bottom
+        ], 
+        "brown",
+        stack_max_size=1,
+        is_transparent=true,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=true,
+        tool_efficiency_factor=10,
+        tool_type=TOOL_HOE,
+        tool_durability_max=64,
+        block_drops_func=()=>{return null},
+        interactable=false,
+        interact=()=>{})
+    );
+    map_block_id_to_block_static_data.set (ITEM_ID_WOODEN_SWORD, new BlockStaticData (
+        ITEM_ID_WOODEN_SWORD, 
+        [ // texture atlas positions
+            [0, 0], // top
+            [0, 0], // sides
+            [0, 0]  // bottom
+        ], 
+        [ // individual texture images
+            texture_wooden_sword, // top
+            texture_wooden_sword, // sides
+            texture_wooden_sword  // bottom
+        ], 
+        "brown",
+        stack_max_size=1,
+        is_transparent=true,
+        mine_duration=2,
+        preferred_tool=null,
+        is_item=true,
+        tool_efficiency_factor=2,
+        tool_type=TOOL_SWORD,
+        tool_durability_max=64,
+        block_drops_func=()=>{return null},
         interactable=false,
         interact=()=>{})
     );

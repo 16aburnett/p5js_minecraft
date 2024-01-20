@@ -155,6 +155,7 @@ which causes the textures to be very blurry
     - we can still store the 16x16 images for editing, and use the 64x versions in game
 - unfortunately, i couldnt get texture atlases working reliably
     - i got it working, but it is SO. SLOW.
+- *** maybe shaders can enable us to upscale without blur
 
 
 # Lighting

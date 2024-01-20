@@ -55,11 +55,83 @@ function crafting_setup ()
     ));
     recipes.push (new Recipe (
         [
+            [BLOCK_ID_WOODEN_PLANKS, BLOCK_ID_WOODEN_PLANKS, BLOCK_ID_WOODEN_PLANKS],
+            [null                  , ITEM_ID_STICK         , null                  ],
+            [null                  , ITEM_ID_STICK         , null                  ]
+        ],
+        new ItemStack (new Item (ITEM_ID_WOODEN_PICKAXE), 1)
+    ));
+    recipes.push (new Recipe (
+        [
+            [BLOCK_ID_WOODEN_PLANKS, BLOCK_ID_WOODEN_PLANKS],
+            [BLOCK_ID_WOODEN_PLANKS, ITEM_ID_STICK         ],
+            [null                  , ITEM_ID_STICK         ]
+        ],
+        new ItemStack (new Item (ITEM_ID_WOODEN_AXE), 1)
+    ));
+    recipes.push (new Recipe (
+        [
+            [BLOCK_ID_WOODEN_PLANKS],
+            [ITEM_ID_STICK         ],
+            [ITEM_ID_STICK         ]
+        ],
+        new ItemStack (new Item (ITEM_ID_WOODEN_SHOVEL), 1)
+    ));
+    recipes.push (new Recipe (
+        [
+            [BLOCK_ID_WOODEN_PLANKS, BLOCK_ID_WOODEN_PLANKS],
+            [null                  , ITEM_ID_STICK         ],
+            [null                  , ITEM_ID_STICK         ]
+        ],
+        new ItemStack (new Item (ITEM_ID_WOODEN_HOE), 1)
+    ));
+    recipes.push (new Recipe (
+        [
+            [BLOCK_ID_WOODEN_PLANKS],
+            [BLOCK_ID_WOODEN_PLANKS],
+            [ITEM_ID_STICK         ]
+        ],
+        new ItemStack (new Item (ITEM_ID_WOODEN_SWORD), 1)
+    ));
+    recipes.push (new Recipe (
+        [
             [BLOCK_ID_COBBLESTONE, BLOCK_ID_COBBLESTONE, BLOCK_ID_COBBLESTONE],
-            [null, ITEM_ID_STICK, null],
-            [null, ITEM_ID_STICK, null]
+            [null                , ITEM_ID_STICK       , null                ],
+            [null                , ITEM_ID_STICK       , null                ]
         ],
         new ItemStack (new Item (ITEM_ID_STONE_PICKAXE), 1)
+    ));
+    recipes.push (new Recipe (
+        [
+            [BLOCK_ID_COBBLESTONE  , BLOCK_ID_COBBLESTONE],
+            [BLOCK_ID_COBBLESTONE  , ITEM_ID_STICK       ],
+            [null                  , ITEM_ID_STICK       ]
+        ],
+        new ItemStack (new Item (ITEM_ID_STONE_AXE), 1)
+    ));
+    recipes.push (new Recipe (
+        [
+            [BLOCK_ID_COBBLESTONE],
+            [ITEM_ID_STICK       ],
+            [ITEM_ID_STICK       ]
+        ],
+        new ItemStack (new Item (ITEM_ID_STONE_SHOVEL), 1)
+    ));
+    recipes.push (new Recipe (
+        [
+            [BLOCK_ID_COBBLESTONE  , BLOCK_ID_COBBLESTONE],
+            [null                  , ITEM_ID_STICK       ],
+            [null                  , ITEM_ID_STICK       ]
+        ],
+        new ItemStack (new Item (ITEM_ID_STONE_HOE), 1)
+    ));
+    recipes.push (new Recipe (
+        [
+            [BLOCK_ID_COBBLESTONE],
+            [BLOCK_ID_COBBLESTONE],
+            [ITEM_ID_STICK       ]
+        ],
+        new ItemStack (new Item (ITEM_ID_STONE_SWORD), 1)
     ));
 }
 

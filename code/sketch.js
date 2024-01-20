@@ -55,6 +55,11 @@ let texture_log_side;
 let texture_log_top;
 let texture_leaves;
 let texture_glass;
+let texture_wooden_pickaxe;
+let texture_wooden_shovel;
+let texture_wooden_axe;
+let texture_wooden_hoe;
+let texture_wooden_sword;
 let texture_stone_pickaxe;
 let texture_stone_shovel;
 let texture_stone_axe;
@@ -157,6 +162,11 @@ function preload ()
     texture_log_top    = loadImage ("assets/texture_log_top_64x.png");
     texture_leaves     = loadImage ("assets/texture_leaves_64x.png");
     texture_glass      = loadImage ("assets/texture_glass_64x.png");
+    texture_wooden_pickaxe = loadImage ("assets/texture_wooden_pickaxe_64x.png");
+    texture_wooden_shovel  = loadImage ("assets/texture_wooden_shovel_64x.png");
+    texture_wooden_axe     = loadImage ("assets/texture_wooden_axe_64x.png");
+    texture_wooden_hoe     = loadImage ("assets/texture_wooden_hoe_64x.png");
+    texture_wooden_sword   = loadImage ("assets/texture_wooden_sword_64x.png");
     texture_stone_pickaxe = loadImage ("assets/texture_stone_pickaxe_64x.png");
     texture_stone_shovel  = loadImage ("assets/texture_stone_shovel_64x.png");
     texture_stone_axe     = loadImage ("assets/texture_stone_axe_64x.png");
@@ -953,7 +963,6 @@ function mousePressed ()
                 if (block_data.interactable)
                 {
                     // interact with block
-                    console.log ("interacting!");
                     block_data.interact ();
                 }
                 // block is not interactable - so try placing held block
