@@ -450,6 +450,7 @@ class Chunk
 
 function generate_terrain_for_chunk (chunk)
 {
+    // generate terrain
     for (let x = 0; x < CHUNK_SIZE; ++x)
     {
         for (let z = 0; z < CHUNK_SIZE; ++z)

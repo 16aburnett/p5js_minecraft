@@ -34,9 +34,6 @@ class World
         // but unfortunately, we cannot save to files via javascript without
         // the user needing to approve a prompt for downloading the file.
         this.unloaded_chunks_map = new Map ();
-
-        // initialize the chunk map
-        this.loaded_chunks_map.set ("0,0", new ChunkStack (0, 0));
     }
     
     // returns the block type at the given block indices.
@@ -227,63 +224,46 @@ class World
             this.loaded_chunks_map.delete (key);
         }
 
-        // check if current chunk is loaded
-        if (this.loaded_chunks_map.has (`${player_pos_chunk_xi},${player_pos_chunk_zi}`))
-            // already loaded, nothing to do
-            null;
-        else
-        {
-            // not loaded, check if we previously loaded this chunk and it is unloaded
-            if (this.unloaded_chunks_map.has (`${player_pos_chunk_xi},${player_pos_chunk_zi}`))
-            {
-                // chunk was unloaded, reload it
-                let key = `${player_pos_chunk_xi},${player_pos_chunk_zi}`;
-                let chunk_stack = this.unloaded_chunks_map.get (key);
-                this.loaded_chunks_map.set (key, chunk_stack);
-                this.unloaded_chunks_map.delete (key);
-            }
-            // not loaded and not unloaded, unvisited chunk stack, generate new terrain
-            else
-            {
-                this.loaded_chunks_map.set (`${player_pos_chunk_xi},${player_pos_chunk_zi}`, new ChunkStack (player_pos_chunk_xi, player_pos_chunk_zi));
-            }
-        }
+        // non-instanced chunk drawing is way too slow for
+        // multiple chunks to have a playable FPS
+        // so ensure other draw styles only render 1 chunk
+        let chunk_render_radius = CHUNK_RENDER_RADIUS;
+        if (current_draw_style != DRAW_STYLE_INSTANCED)
+            chunk_render_radius = 1;
 
-        // ensure we are using the instanced drawing style
-        // bc any other style will not be playable with multiple chunks
-        if (current_draw_style == DRAW_STYLE_INSTANCED)
+        // draw chunks in rings around the center chunk
+        for (let ring_offset = 0; ring_offset < chunk_render_radius; ++ring_offset)
         {
-            // draw chunks in rings around the center chunk
-            for (let ring_offset = 1; ring_offset < CHUNK_RENDER_RADIUS; ++ring_offset)
+            // try to load NxN of chunks around player
+            for (let ci = -ring_offset; ci <= ring_offset; ++ci)
             {
-                // try to load NxN of chunks around player
-                for (let ci = -ring_offset; ci <= ring_offset; ++ci)
+                for (let cj = -ring_offset; cj <= ring_offset; ++cj)
                 {
-                    for (let cj = -ring_offset; cj <= ring_offset; ++cj)
+                    // ignore chunks that arent in the ring
+                    if (!(ci == -ring_offset || ci == ring_offset || cj == -ring_offset || cj == ring_offset))
+                        continue;
+                    // check if current chunk is loaded
+                    if (this.loaded_chunks_map.has (`${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`))
+                        // already loaded, nothing to do
+                        null;
+                    else
                     {
-                        // ignore chunks that arent in the ring
-                        if (!(ci == -ring_offset || ci == ring_offset || cj == -ring_offset || cj == ring_offset))
-                            continue;
-                        // check if current chunk is loaded
-                        if (this.loaded_chunks_map.has (`${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`))
-                            // already loaded, nothing to do
-                            null;
+                        // not loaded, check if we previously loaded this chunk and it is unloaded
+                        if (this.unloaded_chunks_map.has (`${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`))
+                        {
+                            // chunk was unloaded, reload it
+                            let key = `${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`;
+                            let chunk_stack = this.unloaded_chunks_map.get (key);
+                            this.loaded_chunks_map.set (key, chunk_stack);
+                            this.unloaded_chunks_map.delete (key);
+                        }
+                        // not loaded and not unloaded, unvisited chunk stack, generate new terrain
                         else
                         {
-                            // not loaded, check if we previously loaded this chunk and it is unloaded
-                            if (this.unloaded_chunks_map.has (`${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`))
-                            {
-                                // chunk was unloaded, reload it
-                                let key = `${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`;
-                                let chunk_stack = this.unloaded_chunks_map.get (key);
-                                this.loaded_chunks_map.set (key, chunk_stack);
-                                this.unloaded_chunks_map.delete (key);
-                            }
-                            // not loaded and not unloaded, unvisited chunk stack, generate new terrain
-                            else
-                            {
-                                this.loaded_chunks_map.set (`${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`, new ChunkStack (player_pos_chunk_xi+ci, player_pos_chunk_zi+cj));
-                            }
+                            let new_chunk = new ChunkStack (player_pos_chunk_xi+ci, player_pos_chunk_zi+cj);
+                            this.loaded_chunks_map.set (`${player_pos_chunk_xi+ci},${player_pos_chunk_zi+cj}`, new_chunk);
+                            // **if saved to a file, we should load the chunk data here
+                            generate_random_trees (new_chunk);
                         }
                     }
                 }
@@ -309,6 +289,125 @@ class World
         // draw transparent blocks of each chunk
         for (let chunk of this.loaded_chunks_map.values ())
             chunk.draw_transparent_blocks ();
+    }
+}
+
+//========================================================================
+
+// generates random trees for the given chunk
+function generate_random_trees (chunk_stack)
+{
+    // generate trees
+    let num_trees = Math.floor (random (0, 10));
+    for (let t = 0; t < num_trees; ++t)
+    {
+        // find a random x, z position to place the tree
+        let chunk_block_xi = Math.floor (random (0, CHUNK_SIZE));
+        let chunk_block_zi = Math.floor (random (0, CHUNK_SIZE));
+        let block_xi = chunk_stack.chunks[0].xi * CHUNK_SIZE + chunk_block_xi;
+        let block_zi = chunk_stack.chunks[0].zi * CHUNK_SIZE + chunk_block_zi;
+
+        // find surface level
+        let block_yi = 0;
+        for ( ; block_yi < WORLD_HEIGHT; ++block_yi)
+        {
+            let block_id = world.get_block_type (block_xi, block_yi, block_zi);
+            if (block_id == BLOCK_ID_GRASS)
+            {
+                // assume that grass block means surface
+                break;
+            }
+        }
+
+        // ensure that we found a grass block
+        if (block_yi >= WORLD_HEIGHT)
+            // ignore this tree
+            break;
+
+        // ensure tree can be placed there
+        // **skip for now
+
+        // place tree
+        world.set_block_at (BLOCK_ID_LOG, block_xi, block_yi+1, block_zi);
+        world.set_block_at (BLOCK_ID_LOG, block_xi, block_yi+2, block_zi);
+        world.set_block_at (BLOCK_ID_LOG, block_xi, block_yi+3, block_zi);
+        world.set_block_at (BLOCK_ID_LOG, block_xi, block_yi+4, block_zi);
+        world.set_block_at (BLOCK_ID_LOG, block_xi, block_yi+5, block_zi);
+
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+6, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+6, block_zi-1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+6, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+6, block_zi+1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+6, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+5, block_zi-1); // top
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+5, block_zi-1); // top right
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+5, block_zi  ); // right
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+5, block_zi+1); // bottom
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+5, block_zi+1); // bottom left
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+5, block_zi  ); // left
+
+
+        // world.set_block_at (BLOCK_ID_LEAVES, block_xi-2, block_yi+4, block_zi-2);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-2, block_yi+4, block_zi-1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-2, block_yi+4, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-2, block_yi+4, block_zi+1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-2, block_yi+4, block_zi+2);
+
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+4, block_zi-2);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+4, block_zi-1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+4, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+4, block_zi+1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+4, block_zi+2);
+
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+4, block_zi-2);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+4, block_zi-1);
+        // world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+4, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+4, block_zi+1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+4, block_zi+2);
+
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+4, block_zi-2);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+4, block_zi-1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+4, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+4, block_zi+1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+4, block_zi+2);
+
+        // world.set_block_at (BLOCK_ID_LEAVES, block_xi+2, block_yi+4, block_zi-2);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+2, block_yi+4, block_zi-1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+2, block_yi+4, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+2, block_yi+4, block_zi+1);
+        // world.set_block_at (BLOCK_ID_LEAVES, block_xi+2, block_yi+4, block_zi+2);
+
+
+        // world.set_block_at (BLOCK_ID_LEAVES, block_xi-2, block_yi+3, block_zi-2);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-2, block_yi+3, block_zi-1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-2, block_yi+3, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-2, block_yi+3, block_zi+1);
+        // world.set_block_at (BLOCK_ID_LEAVES, block_xi-2, block_yi+3, block_zi+2);
+
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+3, block_zi-2);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+3, block_zi-1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+3, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+3, block_zi+1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi-1, block_yi+3, block_zi+2);
+
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+3, block_zi-2);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+3, block_zi-1);
+        // world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+3, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+3, block_zi+1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi  , block_yi+3, block_zi+2);
+
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+3, block_zi-2);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+3, block_zi-1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+3, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+3, block_zi+1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+1, block_yi+3, block_zi+2);
+
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+2, block_yi+3, block_zi-2);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+2, block_yi+3, block_zi-1);
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+2, block_yi+3, block_zi  );
+        world.set_block_at (BLOCK_ID_LEAVES, block_xi+2, block_yi+3, block_zi+1);
+        // world.set_block_at (BLOCK_ID_LEAVES, block_xi+2, block_yi+3, block_zi+2);
+
     }
 }
 
