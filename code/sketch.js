@@ -270,115 +270,7 @@ function draw ()
 
         // continue breaking block if we were mining
         // and not in inventory
-        if (g_block_being_mined != null && !g_waiting_for_mouse_release && !is_inventory_opened)
-        {
-            // check if we finished breaking block
-            if (g_block_being_mined_delay <= 0.0)
-            {
-                // block is broken, delete it and pop out an item
-                let block_type = world.get_block_type (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z);
-                // delete the block
-                world.delete_block_at (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z);
-                // creative mode should not drop item entities
-                if (current_player_mode != PLAYER_MODE_CREATIVE)
-                {
-                    // drop item entity from the block
-                    let item_stack_to_drop = map_block_id_to_block_static_data.get (block_type).block_drops_func ();
-                    if (item_stack_to_drop != null)
-                    {
-                        let block_item_entity = new ItemEntity (item_stack_to_drop);
-                        // move entity to block's position
-                        block_item_entity.set_position (g_block_being_mined.x * BLOCK_WIDTH, -g_block_being_mined.y * BLOCK_WIDTH - BLOCK_WIDTH/2, g_block_being_mined.z * BLOCK_WIDTH);
-                        // send block in a random direction
-                        let dir = p5.Vector.random3D ();
-                        let vel = p5.Vector.mult (dir, BLOCK_THROW_SPEED/2);
-                        block_item_entity.add_velocity (vel.x, vel.y, vel.z);
-                        // Broken blocks should be able to be picked up instantly
-                        // so clear delay
-                        block_item_entity.collect_delay = 0.0;
-                        // add entity to global list
-                        g_entities.push (block_item_entity);
-                    }
-                }
-                // block is broken so stop mining
-                g_block_being_mined = null;
-                // creative mode should wait until the mouse is released before it can break another block
-                if (current_player_mode == PLAYER_MODE_CREATIVE)
-                    g_waiting_for_mouse_release = true;
-                // consume 1 usage for the current tool (if a tool was used)
-                let hand_item_stack = player.hotbar.slots[current_hotbar_index];
-                let has_item = hand_item_stack != null;
-                // ensure player is holding an item
-                if (has_item)
-                {
-                    let hand_item_static_data = map_block_id_to_block_static_data.get (hand_item_stack.item.item_id);
-                    let is_item_tool = hand_item_static_data.tool_type != TOOL_NONE;
-                    // ensure player's held item is a tool
-                    if (is_item_tool)
-                    {
-                        // consume 1 usage of the item
-                        hand_item_stack.item.usages--;
-                        // ensure item is deleted if it does not have anymore usages
-                        if (hand_item_stack.item.usages <= 0)
-                        {
-                            // remove item since it is broken/used up
-                            player.hotbar.slots[current_hotbar_index] = null;
-                        }
-                    }
-                }
-            }
-            // keep breaking block IFF we are still facing it
-            else if (current_pointed_at_block != null && current_pointed_at_block.equals (g_block_being_mined))
-            {
-                g_block_being_mined_delay -= 1 / frameRate ();
-            }
-            // not looking at block anymore, reset
-            else
-            {
-                g_block_being_mined = null;
-                g_block_being_mined_delay = 0.0;
-            }
-        }
-        // start breaking a new block if we are holding down the mouse
-        else if (g_block_being_mined == null && current_pointed_at_block != null && mouseIsPressed && mouseButton === LEFT && !g_waiting_for_mouse_release)
-        {
-            g_block_being_mined = createVector (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
-            let block_type = world.get_block_type (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z);
-            // insta-mine if in creative
-            if (current_player_mode == PLAYER_MODE_CREATIVE)
-            {
-                g_block_being_mined_delay_max = 0;
-                g_block_being_mined_delay = 0;
-            }
-            // we cant insta-mine in survival mode
-            else if (current_player_mode == PLAYER_MODE_SURVIVAL)
-            {
-                g_block_being_mined_delay_max = map_block_id_to_block_static_data.get (block_type).mine_duration;
-                g_block_being_mined_delay = g_block_being_mined_delay_max;
-                // scale delay if player is holding the necessary tool
-                let block_desired_tool = map_block_id_to_block_static_data.get (block_type).preferred_tool;
-                // ensure we are holding an item
-                let hand_item = player.hotbar.slots[current_hotbar_index] == null ? null : player.hotbar.slots[current_hotbar_index].item.item_id;
-                if (hand_item != null)
-                {
-                    // ensure item is a tool
-                    let is_tool = map_block_id_to_block_static_data.get (hand_item).tool_type != TOOL_NONE;
-                    let is_matching_tool = block_desired_tool == map_block_id_to_block_static_data.get (hand_item).tool_type;
-                    if (is_tool && is_matching_tool)
-                    {
-                        // tool is desired tool
-                        // reduce delay
-                        let tool_efficiency_factor = map_block_id_to_block_static_data.get (hand_item).tool_efficiency_factor;
-                        // guard against div-by-zero
-                        if (tool_efficiency_factor != 0)
-                        {
-                            g_block_being_mined_delay_max = g_block_being_mined_delay_max / tool_efficiency_factor;
-                            g_block_being_mined_delay = g_block_being_mined_delay_max;
-                        }
-                    }
-                }
-            }
-        }
+        continue_breaking_blocks ();
         
         // draw world
         world.draw_solid_blocks ();
@@ -475,6 +367,122 @@ function draw ()
         textSize (32);
         text ("Click anywhere to resume", windowWidth / 2, windowHeight / 2);
         pop ();
+    }
+}
+
+//========================================================================
+
+function continue_breaking_blocks ()
+{
+    
+    if (g_block_being_mined != null && !g_waiting_for_mouse_release && !is_inventory_opened)
+    {
+        // check if we finished breaking block
+        if (g_block_being_mined_delay <= 0.0)
+        {
+            // block is broken, delete it and pop out an item
+            let block_type = world.get_block_type (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z);
+            // delete the block
+            world.delete_block_at (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z);
+            // creative mode should not drop item entities
+            if (current_player_mode != PLAYER_MODE_CREATIVE)
+            {
+                // drop item entity from the block
+                let item_stack_to_drop = map_block_id_to_block_static_data.get (block_type).block_drops_func ();
+                if (item_stack_to_drop != null)
+                {
+                    let block_item_entity = new ItemEntity (item_stack_to_drop);
+                    // move entity to block's position
+                    block_item_entity.set_position (g_block_being_mined.x * BLOCK_WIDTH, -g_block_being_mined.y * BLOCK_WIDTH - BLOCK_WIDTH/2, g_block_being_mined.z * BLOCK_WIDTH);
+                    // send block in a random direction
+                    let dir = p5.Vector.random3D ();
+                    let vel = p5.Vector.mult (dir, BLOCK_THROW_SPEED/2);
+                    block_item_entity.add_velocity (vel.x, vel.y, vel.z);
+                    // Broken blocks should be able to be picked up instantly
+                    // so clear delay
+                    block_item_entity.collect_delay = 0.0;
+                    // add entity to global list
+                    g_entities.push (block_item_entity);
+                }
+            }
+            // block is broken so stop mining
+            g_block_being_mined = null;
+            // creative mode should wait until the mouse is released before it can break another block
+            if (current_player_mode == PLAYER_MODE_CREATIVE)
+                g_waiting_for_mouse_release = true;
+            // consume 1 usage for the current tool (if a tool was used)
+            let hand_item_stack = player.hotbar.slots[current_hotbar_index];
+            let has_item = hand_item_stack != null;
+            // ensure player is holding an item
+            if (has_item)
+            {
+                let hand_item_static_data = map_block_id_to_block_static_data.get (hand_item_stack.item.item_id);
+                let is_item_tool = hand_item_static_data.tool_type != TOOL_NONE;
+                // ensure player's held item is a tool
+                if (is_item_tool)
+                {
+                    // consume 1 usage of the item
+                    hand_item_stack.item.usages--;
+                    // ensure item is deleted if it does not have anymore usages
+                    if (hand_item_stack.item.usages <= 0)
+                    {
+                        // remove item since it is broken/used up
+                        player.hotbar.slots[current_hotbar_index] = null;
+                    }
+                }
+            }
+        }
+        // keep breaking block IFF we are still facing it
+        else if (current_pointed_at_block != null && current_pointed_at_block.equals (g_block_being_mined))
+        {
+            g_block_being_mined_delay -= 1 / frameRate ();
+        }
+        // not looking at block anymore, reset
+        else
+        {
+            g_block_being_mined = null;
+            g_block_being_mined_delay = 0.0;
+        }
+    }
+    // start breaking a new block if we are holding down the mouse
+    else if (g_block_being_mined == null && current_pointed_at_block != null && mouseIsPressed && mouseButton === LEFT && !g_waiting_for_mouse_release)
+    {
+        g_block_being_mined = createVector (current_pointed_at_block.x, current_pointed_at_block.y, current_pointed_at_block.z);
+        let block_type = world.get_block_type (g_block_being_mined.x, g_block_being_mined.y, g_block_being_mined.z);
+        // insta-mine if in creative
+        if (current_player_mode == PLAYER_MODE_CREATIVE)
+        {
+            g_block_being_mined_delay_max = 0;
+            g_block_being_mined_delay = 0;
+        }
+        // we cant insta-mine in survival mode
+        else if (current_player_mode == PLAYER_MODE_SURVIVAL)
+        {
+            g_block_being_mined_delay_max = map_block_id_to_block_static_data.get (block_type).mine_duration;
+            g_block_being_mined_delay = g_block_being_mined_delay_max;
+            // scale delay if player is holding the necessary tool
+            let block_desired_tool = map_block_id_to_block_static_data.get (block_type).preferred_tool;
+            // ensure we are holding an item
+            let hand_item = player.hotbar.slots[current_hotbar_index] == null ? null : player.hotbar.slots[current_hotbar_index].item.item_id;
+            if (hand_item != null)
+            {
+                // ensure item is a tool
+                let is_tool = map_block_id_to_block_static_data.get (hand_item).tool_type != TOOL_NONE;
+                let is_matching_tool = block_desired_tool == map_block_id_to_block_static_data.get (hand_item).tool_type;
+                if (is_tool && is_matching_tool)
+                {
+                    // tool is desired tool
+                    // reduce delay
+                    let tool_efficiency_factor = map_block_id_to_block_static_data.get (hand_item).tool_efficiency_factor;
+                    // guard against div-by-zero
+                    if (tool_efficiency_factor != 0)
+                    {
+                        g_block_being_mined_delay_max = g_block_being_mined_delay_max / tool_efficiency_factor;
+                        g_block_being_mined_delay = g_block_being_mined_delay_max;
+                    }
+                }
+            }
+        }
     }
 }
 

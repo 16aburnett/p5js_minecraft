@@ -29,6 +29,11 @@ class Chunk
         // keeps track of if this chunk is loaded
         // we will draw this chunk only if it is loaded
         this.is_loaded = true;
+        // if set to true, this chunk's geometry will be rebuilt
+        // and drawn when it can (1 chunk is build per frame)
+        // this keeps the original chunk drawn while waiting
+        this.should_reload_solid_blocks = false;
+        this.should_reload_transparent_blocks = false;
 
         // For instanced draw style
         // this stores the prebuilt geometry of the chunk
@@ -272,8 +277,8 @@ class Chunk
 
     reload_chunk ()
     {
-        this.solid_geometry = null;
-        this.transparent_geometry = null;
+        this.should_reload_solid_blocks = true;
+        this.should_reload_transparent_blocks = true;
     }
 
     // draws all solid blocks (non-transparent) of this chunk 
@@ -294,13 +299,17 @@ class Chunk
         {
             // prebuild a geometry of this chunk if we dont already have one
             // unless we already built a chunk in this frame, then just ignore for now
-            if (this.solid_geometry == null && current_chunk_build_delay <= 0.0)
+            let needs_to_build = this.solid_geometry == null || this.should_reload_solid_blocks;
+            if (needs_to_build && current_chunk_build_delay <= 0.0)
             {
                 this.build_geometry (true);
                 current_chunk_build_delay = CHUNK_BUILD_DELAY;
+                // we built the geometry so we dont need to reload the chunk
+                this.should_reload_solid_blocks = false;
             }
-            else if (this.solid_geometry == null && current_chunk_build_delay > 0.0)
-                // dont draw anything since we have nothing to draw
+            // ensure we have something to draw
+            if (this.solid_geometry == null)
+                // nothing to draw
                 return;
             // draw model
             graphics.noFill ();
@@ -355,14 +364,18 @@ class Chunk
         {
             // prebuild a geometry of this chunk if we dont already have one
             // also built geometry if solid blocks were built
-            if ((this.transparent_geometry == null && current_chunk_build_delay <= 0.0) ||
-                (this.transparent_geometry == null && this.solid_geometry != null))
+            let needs_to_build = this.transparent_geometry == null || this.should_reload_transparent_blocks;
+            if ((needs_to_build && current_chunk_build_delay <= 0.0) ||
+                (needs_to_build && this.solid_geometry != null))
             {
                 this.build_geometry (false);
                 current_chunk_build_delay = CHUNK_BUILD_DELAY;
+                // we built the geometry so we dont need to reload the chunk
+                this.should_reload_transparent_blocks = false;
             }
-            else if (this.transparent_geometry == null && current_chunk_build_delay > 0.0)
-                // dont draw anything since we have nothing to draw
+            // ensure we have something to draw
+            if (this.transparent_geometry == null)
+                // nothing to draw
                 return;
             // draw model
             graphics.noFill ();
